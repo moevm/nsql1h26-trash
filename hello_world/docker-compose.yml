@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: arangodb/arangodb:3.11
@@ -18,3 +16,6 @@ services:
       - db
     environment:
       - ARANGO_HOST=http://db:8529
+
+volumes:
+  arango_data:
