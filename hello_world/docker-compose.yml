@@ -11,5 +11,10 @@ services:
     volumes:
       - arango_data:/var/lib/arangodb3
 
-volumes:
-  arango_data:
+  app:
+    build: .
+    container_name: python-app-test
+    depends_on:
+      - db
+    environment:
+      - ARANGO_HOST=http://db:8529
