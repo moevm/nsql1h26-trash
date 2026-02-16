@@ -31,7 +31,7 @@
 ### 1. Клонирование репозитория
 Откройте терминал и выполните команду для скачивания проекта:
 ```bash
-git clone [https://github.com/moevm/nsql1h26-trash.git](https://github.com/moevm/nsql1h26-trash.git)
+git clone https://github.com/moevm/nsql1h26-trash.git
 cd nsql1h26-trash/hello_world
 ```
 ### 2. Запуск через Docker Compose
