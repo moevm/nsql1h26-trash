@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: arangodb:3.11
+    container_name: trash_db
+    environment:
+      - ARANGO_ROOT_PASSWORD=tywin_secret_pass
+    ports:
+      - "8529:8529"
+    networks:
+      - trash_net
+
+  # БЭКЕНД
+  backend:
+    build: ./backend
+    container_name: trash_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=http://db:8529
+      - DB_PASSWORD=tywin_secret_pass
+    depends_on:
+      - db
+    networks:
+      - trash_net
+
+networks:
+  trash_net:
+    driver: bridge
