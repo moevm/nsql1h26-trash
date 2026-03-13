@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
     const navigate = useNavigate();
-
     return (
         <header className="selection-header">
             <div className="header-container">
@@ -12,7 +11,7 @@ const Header = () => {
                         onClick={() => navigate(-1)}
                         className="flex items-center gap-2 group text-sm font-bold text-text-secondary hover:text-primary transition-colors"
                     >
-                        <span className="material-symbols-outlined text-xl">arrow_back</span>
+                        <span className="icon-base text-xl">arrow_back</span>
                         Назад
                     </button>
                     <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
@@ -27,11 +26,50 @@ const Header = () => {
 };
 
 const CourierRegistration = () => {
+    const navigate = useNavigate();
+    const fileInputRef = useRef(null);
+    const [showPass, setShowPass] = useState(false);
+
+    // Твои состояния формы
+    const [formData, setFormData] = useState({
+        fullName: '',
+        phone: '',
+        city: '',
+        email: '',
+        transport: '',
+        password: '',
+        confirmPassword: ''
+    });
+    const [selectedFile, setSelectedFile] = useState(null);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setSelectedFile(e.target.files[0]);
+        }
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (formData.password !== formData.confirmPassword) {
+            alert("Пароли не совпадают!");
+            return;
+        }
+        navigate('/courier-dash', {
+            state: { userName: formData.fullName }
+        });
+    };
+
     return (
         <div className="selection-page-wrapper">
             <Header />
 
             <main className="flex-grow flex flex-col items-center justify-center py-12 px-4 relative overflow-hidden">
+                {/* Фон-декор */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-3xl"></div>
                     <div className="absolute bottom-[10%] -right-[5%] w-[30%] h-[30%] bg-primary/10 rounded-full blur-3xl"></div>
@@ -41,53 +79,81 @@ const CourierRegistration = () => {
                     <div className="p-8 sm:p-10">
                         <div className="text-center mb-10">
                             <h2 className="selection-title mb-2">Стать курьером</h2>
-                            <p className="selection-subtitle">Заполните форму, чтобы начать зарабатывать на выносе мусора в удобное для вас время.</p>
+                            <p className="selection-subtitle">Заполните форму, чтобы начать зарабатывать.</p>
                         </div>
 
-                        <form className="space-y-6">
+                        <form className="space-y-6" onSubmit={handleSubmit}>
                             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                                {/* ФИО */}
                                 <div className="col-span-1 sm:col-span-2">
                                     <label className="reg-label">ФИО</label>
                                     <div className="reg-input-wrapper">
-                                        <span className="absolute left-4 text-primary material-symbols-outlined select-none">person</span>
-                                        <input className="reg-input-field" placeholder="Иванов Иван Иванович" type="text" />
+                                        <span className="reg-input-icon">person</span>
+                                        <input name="fullName" value={formData.fullName} onChange={handleChange} className="reg-input-field" placeholder="Иванов Иван Иванович" type="text" required />
                                     </div>
                                 </div>
 
-                                {/* Телефон */}
                                 <div className="col-span-1">
                                     <label className="reg-label">Телефон</label>
                                     <div className="reg-input-wrapper">
-                                        <span className="absolute left-4 text-primary material-symbols-outlined select-none">call</span>
-                                        <input className="reg-input-field" placeholder="+7 (000) 000-00-00" type="tel" />
+                                        <span className="reg-input-icon">call</span>
+                                        <input name="phone" value={formData.phone} onChange={handleChange} className="reg-input-field" placeholder="+7 (000) 000-00-00" type="tel" required />
                                     </div>
                                 </div>
-
-                                {/* Город */}
                                 <div className="col-span-1">
                                     <label className="reg-label">Город</label>
                                     <div className="reg-input-wrapper">
-                                        <span className="absolute left-4 text-primary material-symbols-outlined select-none">location_on</span>
-                                        <input className="reg-input-field" placeholder="Санкт-Петербург" type="text" />
+                                        <span className="reg-input-icon">location_on</span>
+                                        <input name="city" value={formData.city} onChange={handleChange} className="reg-input-field" placeholder="Санкт-Петербург" type="text" required />
                                     </div>
                                 </div>
 
-                                {/* ПОЧТА*/}
                                 <div className="col-span-1 sm:col-span-2">
                                     <label className="reg-label">Электронная почта</label>
                                     <div className="reg-input-wrapper">
-                                        <span className="absolute left-4 text-primary material-symbols-outlined select-none">mail</span>
-                                        <input className="reg-input-field" placeholder="example@mail.ru" type="email" />
+                                        <span className="reg-input-icon">mail</span>
+                                        <input name="email" value={formData.email} onChange={handleChange} className="reg-input-field" placeholder="example@mail.ru" type="email" required />
                                     </div>
                                 </div>
 
-                                {/* Транспорт */}
+                                <div className="col-span-1">
+                                    <label className="reg-label">Пароль</label>
+                                    <div className="reg-input-wrapper">
+                                        <span className="reg-input-icon">lock</span>
+                                        <input
+                                            name="password"
+                                            value={formData.password}
+                                            onChange={handleChange}
+                                            className="reg-input-field"
+                                            placeholder="••••••••"
+                                            type={showPass ? "text" : "password"}
+                                            required
+                                        />
+                                        <span className="reg-input-icon-right" onClick={() => setShowPass(!showPass)}>
+                                            {showPass ? "visibility" : "visibility_off"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="col-span-1">
+                                    <label className="reg-label">Подтверждение</label>
+                                    <div className="reg-input-wrapper">
+                                        <span className="reg-input-icon">lock_reset</span>
+                                        <input
+                                            name="confirmPassword"
+                                            value={formData.confirmPassword}
+                                            onChange={handleChange}
+                                            className="reg-input-field"
+                                            placeholder="••••••••"
+                                            type={showPass ? "text" : "password"}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
                                 <div className="col-span-1 sm:col-span-2">
                                     <label className="reg-label">Транспорт</label>
                                     <div className="reg-input-wrapper">
-                                        <span className="absolute left-4 text-primary material-symbols-outlined select-none">directions_bike</span>
-                                        <select className="reg-select-field">
+                                        <span className="reg-input-icon">directions_bike</span>
+                                        <select name="transport" value={formData.transport} onChange={handleChange} className="reg-select-field" required>
                                             <option value="">Выберите тип транспорта</option>
                                             <option value="foot">Пешком</option>
                                             <option value="bicycle">Велосипед</option>
@@ -97,34 +163,29 @@ const CourierRegistration = () => {
                                 </div>
                             </div>
 
-                            {/* Загрузка паспорта */}
                             <div>
                                 <label className="reg-label">Фото паспорта</label>
-                                <div className="upload-zone group">
-                                    <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
-                                    <div className="space-y-2 relative z-10">
-                                        <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                                            <span className="material-symbols-outlined text-3xl">cloud_upload</span>
+                                <div className="upload-zone group relative cursor-pointer" onClick={() => fileInputRef.current.click()}>
+                                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                                    <div className="space-y-2 relative z-10 text-center">
+                                        <div className={`mx-auto h-12 w-12 flex items-center justify-center rounded-full transition-all ${selectedFile ? 'bg-primary text-white' : 'bg-primary/10 text-primary'}`}>
+                                            <span className="icon-base text-3xl">{selectedFile ? 'check' : 'cloud_upload'}</span>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-600">Нажмите для загрузки</p>
+                                        <p className="text-sm font-bold text-slate-600">{selectedFile ? 'Файл выбран' : 'Нажмите для загрузки'}</p>
+                                        {selectedFile && <p className="text-[10px] text-primary font-bold">{selectedFile.name}</p>}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Кнопка и Политика */}
-                            <div className="pt-6 border-t border-slate-50">
-                                <button type="submit" className="reg-submit-btn">
-                                    Зарегистрироваться
-                                </button>
+                            <button type="submit" className="reg-submit-btn">Зарегистрироваться</button>
 
-                                <div className="reg-footer-container">
-                                    <p className="reg-footer-text">
-                                        Нажимая кнопку, вы соглашаетесь с{' '}
-                                        <span className="reg-link">условиями оферты</span>
-                                        {' '}и{' '}
-                                        <span className="reg-link">политикой конфиденциальности</span>
-                                    </p>
-                                </div>
+                            <div className="reg-footer-container">
+                                {/* Та самая фраза про условия */}
+                                <p className="reg-footer-text mb-4">
+                                    Нажимая на кнопку, вы соглашаетесь с{' '}
+                                    <span className="reg-link">Условиями использования</span> и{' '}
+                                    <span className="reg-link">Политикой конфиденциальности</span>
+                                </p>
                             </div>
                         </form>
                     </div>

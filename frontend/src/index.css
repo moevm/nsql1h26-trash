@@ -245,13 +245,154 @@
 }
 /* --- REGISTRATION CUSTOMER --- */
 @utility reg-input-icon {
-  @apply absolute left-4 text-primary  select-none;
+  @apply icon-base absolute left-4 text-primary select-none;
 }
 
 @utility reg-input-icon-right {
-  @apply absolute right-4 text-slate-400 cursor-pointer hover:text-primary transition-colors;
+  @apply icon-base absolute right-4 text-slate-400 cursor-pointer hover:text-primary transition-colors;
 }
 
 @utility reg-checkbox {
-  @apply h-5 w-5 rounded border-slate-200 text-primary focus:ring-primary cursor-pointer;
+  @apply h-5 w-5 rounded border-slate-200 text-primary focus:ring-primary cursor-pointer mt-0.5;
+}
+
+/* Общий стиль для ссылок внизу */
+@utility reg-link-bold {
+  @apply text-primary font-bold underline hover:text-primary-dark transition-colors;
+}
+
+/* --- SIDEBAR --- */
+@utility sidebar-wrapper {
+  @apply w-72 bg-[#f8fcf8] border-r border-[#e7f3e7] flex flex-col h-full shrink-0 hidden lg:flex;
+}
+
+@utility sidebar-logo-text {
+  @apply text-xl font-black tracking-tight text-text-main;
+}
+
+@utility sidebar-badge {
+  @apply text-primary-dark text-[10px] font-bold uppercase tracking-[0.15em] pl-9 opacity-70;
+}
+
+/* Кнопки меню */
+@utility sidebar-nav-item {
+  @apply flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all;
+}
+
+@utility sidebar-nav-active {
+  @apply bg-primary/10 text-text-main;
+}
+
+@utility sidebar-nav-inactive {
+  @apply text-slate-400 hover:bg-white hover:text-text-main hover:shadow-sm;
+}
+
+/* Карточка профиля внизу */
+@utility sidebar-profile-card {
+  @apply flex items-center gap-3 mb-4 p-3 bg-white rounded-xl border border-[#e7f3e7];
+}
+
+@utility sidebar-rating {
+  @apply text-[10px] font-black text-primary uppercase tracking-wider;
+}
+
+@utility sidebar-logout {
+  @apply w-full flex items-center justify-center gap-2 rounded-lg h-10 text-red-500 hover:bg-red-50 text-sm font-bold transition-colors;
+}
+
+/* --- DASHBOARD ELEMENTS --- */
+@utility dash-header {
+  @apply h-24 flex items-center justify-between px-10 bg-white border-b border-[#e7f3e7] shrink-0;
+}
+
+@utility balance-card {
+  @apply flex items-center gap-3 px-5 py-2 bg-white rounded-2xl border border-[#e7f3e7] shadow-sm;
+}
+
+@utility filter-bar {
+  @apply px-10 py-5 bg-[#fbfcfb] border-b border-[#e7f3e7] flex items-center justify-between shrink-0;
+}
+
+/* Карточки заказов */
+@utility order-card {
+  @apply bg-white rounded-2xl border border-[#e7f3e7] shadow-sm hover:shadow-md transition-all relative overflow-hidden flex items-center;
+}
+
+@utility order-icon-box {
+  @apply w-14 h-14 rounded-2xl flex items-center justify-center;
+}
+
+@utility order-action-zone {
+  @apply px-8 py-5 h-full bg-[#f8fcf8] border-l border-[#e7f3e7] flex items-center gap-6 min-w-[240px];
+}
+
+@utility btn-take {
+  @apply bg-primary hover:bg-primary-dark text-text-main font-black uppercase text-xs px-8 py-3.5 rounded-xl transition-all active:scale-95 shadow-lg shadow-primary/20;
+}
+
+/* Пагинация */
+@utility pagin-btn-active {
+  @apply w-10 h-10 rounded-xl bg-text-main text-white font-black text-xs shadow-lg shadow-black/10;
+}
+
+@utility pagin-btn-inactive {
+  @apply w-10 h-10 rounded-xl bg-white border border-[#e7f3e7] text-slate-400 font-black text-xs hover:border-primary transition-all;
+}
+
+/* --- TABLE & HISTORY --- */
+@utility table-wrapper {
+  @apply bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col;
+}
+
+@utility table-head-cell {
+  @apply py-4 px-6 text-xs font-bold uppercase text-slate-500 tracking-wider bg-slate-50 border-b border-slate-100;
+}
+
+@utility table-row {
+  @apply hover:bg-slate-50 transition-colors cursor-pointer border-b border-slate-100 last:border-0;
+}
+
+@utility table-cell {
+  @apply py-4 px-6 text-sm text-text-main;
+}
+
+@utility status-badge-success {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+}
+
+@utility search-input {
+  @apply pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/50 w-64 transition-all;
+}
+
+/* --- WALLET SPECIFIC --- */
+@utility stat-card {
+  @apply bg-white rounded-2xl border border-[#e7f3e7] shadow-sm p-6 flex flex-col justify-between;
+}
+
+@utility btn-withdraw {
+  @apply w-full flex items-center justify-center gap-2 px-4 py-2 mt-auto bg-primary hover:bg-primary-dark text-text-main rounded-lg font-bold transition-colors;
+}
+
+@utility filter-btn {
+  @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all border border-[#e7f3e7];
+  &.active { @apply bg-primary text-text-main shadow-sm border-primary; }
+  &.inactive { @apply bg-[#f8fcf8] text-text-secondary hover:text-text-main; }
+}
+
+/* --- PROFILE SPECIFIC --- */
+@utility profile-card {
+  @apply bg-white rounded-2xl border border-slate-200 shadow-sm p-8 sm:p-12;
+}
+
+@utility transport-card {
+  @apply flex items-center gap-3 rounded-xl border border-slate-200 bg-[#f8fcf8] p-4 transition-all
+  hover:border-primary/50 cursor-pointer h-full relative overflow-hidden;
+}
+
+@utility transport-active {
+  @apply border-primary bg-[#f0fdf0] ring-1 ring-primary;
+}
+
+@utility avatar-wrapper {
+  @apply size-32 rounded-full bg-slate-200 bg-cover bg-center ring-4 ring-slate-100 relative;
 }
