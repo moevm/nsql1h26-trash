@@ -59,7 +59,8 @@ function Home() {
                             </div>
 
                             <div className="auth-form">
-                                <button className="btn-primary">
+                                <button className="btn-primary"
+                                        onClick={() => navigate('/login')}>
                                     <span>Войти в аккаунт</span>
                                     <span className="icon-anim material-symbols-outlined">login</span>
                                 </button>
