@@ -9,7 +9,11 @@
 }
 
 @layer base {
-  body { @apply bg-background-light text-text-main font-display min-h-screen flex flex-col; }
+  body { @apply bg-background-light
+  text-text-main
+  font-display
+  min-h-screen
+  flex flex-col; }
 }
 
 /* --- ICONS--- */
@@ -364,19 +368,34 @@
   @apply pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/50 w-64 transition-all;
 }
 
-/* --- WALLET SPECIFIC --- */
-@utility stat-card {
-  @apply bg-white rounded-2xl border border-[#e7f3e7] shadow-sm p-6 flex flex-col justify-between;
+/* --- WALLET PAGE STYLES --- */
+
+/* Контейнер шапки баланса (маленький в Header) */
+@utility balance-card-mini {
+  @apply h-12 px-4 border border-slate-100 rounded-xl flex items-center gap-3 bg-white shadow-sm;
 }
 
-@utility btn-withdraw {
-  @apply w-full flex items-center justify-center gap-2 px-4 py-2 mt-auto bg-primary hover:bg-primary-dark text-text-main rounded-lg font-bold transition-colors;
+/* Основная карточка статистики (сетка) */
+@utility wallet-stat-card {
+  @apply bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col min-h-[160px];
 }
 
-@utility filter-btn {
-  @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all border border-[#e7f3e7];
-  &.active { @apply bg-primary text-text-main shadow-sm border-primary; }
-  &.inactive { @apply bg-[#f8fcf8] text-text-secondary hover:text-text-main; }
+/* Кнопка вывода средств */
+@utility btn-withdraw-main {
+  @apply w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary-dark
+  text-text-main rounded-xl font-black transition-all active:scale-95 shadow-lg shadow-primary/20;
+}
+
+/* Кнопки фильтрации (неделя/месяц/год) */
+@utility wallet-filter-btn {
+  @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all border;
+  &.active { @apply bg-primary text-text-main border-primary shadow-sm; }
+  &.inactive { @apply bg-slate-50 text-text-secondary border-slate-200 hover:text-text-main; }
+}
+
+/* Специфичные стили для иконок транзакций */
+@utility transaction-icon-box {
+  @apply w-9 h-9 rounded-xl flex items-center justify-center;
 }
 
 /* --- PROFILE SPECIFIC --- */
