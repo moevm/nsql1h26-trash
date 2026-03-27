@@ -22,6 +22,13 @@ import ApproveOrder from "./pages/customer/ApproveOrder.jsx";
 import LoginPage from "./pages/Login.jsx";
 import RoleSelectionPage from "./pages/ChooseRoleEnterence.jsx";
 import ChooseRoleAdmin from "./pages/ChooseRoleAdmin.jsx";
+import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
+import AdminUsers from "./pages/admin/AdminUsers.jsx";
+import AdminOrders from "./pages/admin/AdminOrders.jsx";
+import AdminAnalytics from "./pages/admin/AdminAnalytic.jsx";
+import ForgotPasswordEmail from "./pages/ForgotPasswordEmail.jsx";
+import VerifyCode from "./pages/VerifyCode.jsx";
+import NewPassword from "./pages/NewPassword.jsx";
 function App() {
     return (
         <Router>
@@ -49,6 +56,13 @@ function App() {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/choose-role" element={<RoleSelectionPage />} />
                     <Route path="/choose-role-admin" element={<ChooseRoleAdmin />} />
+                    <Route path="/admin-dashboard" element={<AdminDashboard />} />
+                    <Route path="/admin-users" element={<AdminUsers />} />
+                    <Route path="/admin-orders" element={<AdminOrders />} />
+                    <Route path="/admin-analytics" element={<AdminAnalytics />} />
+                    <Route path="/forgot-password-email" element={<ForgotPasswordEmail />} />
+                    <Route path="/verify-code" element={<VerifyCode />} />
+                    <Route path="/new-password" element={<NewPassword />} />
                 </Routes>
             </div>
         </Router>
