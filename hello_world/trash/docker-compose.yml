@@ -5,26 +5,42 @@ services:
     image: arangodb:3.11
     container_name: trash_db
     environment:
-      - ARANGO_ROOT_PASSWORD=tywin_secret_pass
+      - ARANGO_ROOT_PASSWORD=${TRASH_DB_PASSWORD}
     ports:
-      - "8529:8529"
+      - "127.0.0.1:8529:8529"
+    volumes:
+      - arango_data:/var/lib/arangodb3
     networks:
       - trash_net
+    healthcheck:
+      test: ["CMD", "arangosh", "--server.endpoint", "tcp://127.0.0.1:8529", "--server.password", "${TRASH_DB_PASSWORD}", "--javascript.execute-string", "db._version()"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # БЭКЕНД
+
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: trash_backend
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=http://db:8529
-      - DB_PASSWORD=tywin_secret_pass
+      - TRASH_DB_PASSWORD=${TRASH_DB_PASSWORD}
+      - TRASH_DB_NAME=${TRASH_DB_NAME}
+      - TRASH_DB_HOST=${TRASH_DB_HOST}
+      - TRASH_DB_PORT=${TRASH_DB_PORT}
+      - TRASH_DB_URL=http://${TRASH_DB_HOST}:${TRASH_DB_PORT}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - trash_net
 
 networks:
   trash_net:
     driver: bridge
+
+volumes:
+  arango_data:
