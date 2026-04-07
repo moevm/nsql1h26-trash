@@ -1,28 +1,29 @@
 from arango import ArangoClient
-import os
-
-
-ARANGO_URL = os.getenv("DATABASE_URL", "http://db:8529")
-ARANGO_PASSWORD = os.getenv("DB_PASSWORD", "tywin_secret_pass")
+from app.core.config import settings
 
 class ArangoDatabase:
     def __init__(self):
-        self.client = ArangoClient(hosts=ARANGO_URL)
+        self.client = ArangoClient(hosts=settings.DB_URL)
         self.db = None
 
     def connect(self):
+        sys_db = self.client.db(
+            '_system', 
+            username='root', 
+            password=settings.DB_PASSWORD
+        )
         
-        sys_db = self.client.db('_system', username='root', password=ARANGO_PASSWORD)
+        if not sys_db.has_database(settings.DB_NAME):
+            sys_db.create_database(settings.DB_NAME)
         
-        
-        db_name = 'trash_service_db'
-        
-        if not sys_db.has_database(db_name):
-            sys_db.create_database(db_name)
-        
-        self.db = self.client.db(db_name, username='root', password=ARANGO_PASSWORD)
-        print(f"Успешное подключение к ArangoDB: {db_name}")
+        self.db = self.client.db(
+            settings.DB_NAME, 
+            username='root', 
+            password=settings.DB_PASSWORD
+        )
         return self.db
 
+    def disconnect(self):
+        self.db = None
 
 arango_instance = ArangoDatabase()
