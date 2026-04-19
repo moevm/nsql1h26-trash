@@ -1,40 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 
 const CourierDashboard = () => {
     const [activeTab, setActiveTab] = useState('Все заказы');
+    const [orders, setOrders] = useState([]);
     const location = useLocation();
     const userName = location.state?.userName || "Алексей К.";
     const navigate = useNavigate();
 
-    const orders = [
-        {
-            id: '4829',
-            type: 'Бытовой мусор',
-            address: 'ул. Ленина, 45, под. 3',
-            note: 'Вход со двора, код 1234',
-            price: '350',
-            time: '5 мин назад',
-            distance: '1.2 км',
-            icon: 'delete_forever',
-            color: 'text-red-500',
-            bg: 'bg-red-50',
-            isNew: true
-        },
-        {
-            id: '4831',
-            type: 'Строительный',
-            address: 'пр. Мира, 12',
-            note: 'Новостройка, есть лифт',
-            price: '1 200',
-            time: '12 мин назад',
-            distance: '5.0 км',
-            icon: 'construction',
-            color: 'text-yellow-600',
-            bg: 'bg-yellow-50'
+    const fetchOrders = async (tab) => {
+        // Маппинг вкладок на параметры базы данных
+        const typeMap = {
+            'Бытовой': 'Бытовой мусор',
+            'Строительный': 'Строительный',
+            'Мебель': 'Мебель'
+        };
+
+        const typeParam = typeMap[tab] ? `?type=${encodeURIComponent(typeMap[tab])}` : '';
+        const url = `/api/v1/courier/orders/available${typeParam}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Ошибка сети');
+            const data = await response.json();
+            setOrders(data.orders || []); // Данные из бэка
+        } catch (error) {
+            console.error("Не удалось загрузить заказы:", error);
+            setOrders([]);
         }
-    ];
+    };
+
+    // 4. Загрузка при изменении вкладки
+    useEffect(() => {
+        fetchOrders(activeTab);
+    }, [activeTab]);
 
     return (
         <div className="flex h-screen bg-background-light overflow-hidden text-text-main">
@@ -90,8 +90,11 @@ const CourierDashboard = () => {
                                     <div className="flex-1 flex gap-3 items-start">
                                         <span className="icon-base text-primary mt-0.5">location_on</span>
                                         <div className="min-w-0">
-                                            <p className="text-sm font-bold truncate">{order.address}</p>
-                                            <p className="text-xs text-slate-400 mt-1 truncate">{order.note}</p>
+                                            <p className="text-sm font-bold truncate">{order.location?.address || "Адрес не указан"}</p>
+                                            <p className="text-xs text-slate-400 mt-1 truncate">
+                                                {order.location?.details?.floor ? `Этаж: ${order.location.details.floor} ` : ''}
+                                                {order.location?.details?.intercom ? `Домофон: ${order.location.details.intercom}` : ''}
+                                            </p>
                                         </div>
                                     </div>
 
@@ -109,7 +112,7 @@ const CourierDashboard = () => {
                                         <p className="text-2xl font-black mt-1">{order.price} ₽</p>
                                     </div>
                                     <button
-                                        onClick={() => navigate('/order-details', { state: { order, userName } })}
+                                        onClick={() => navigate(`/order-details/${order.id}`)}
                                         className="btn-take"
                                     >
                                         Взять
