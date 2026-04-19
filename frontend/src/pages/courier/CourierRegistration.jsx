@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../AuthContext';
 
 const Header = () => {
     const navigate = useNavigate();
@@ -29,8 +30,7 @@ const CourierRegistration = () => {
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
     const [showPass, setShowPass] = useState(false);
-
-    // Твои состояния формы
+    const { login } = useAuth();
     const [formData, setFormData] = useState({
         fullName: '',
         phone: '',
@@ -53,17 +53,56 @@ const CourierRegistration = () => {
         }
     };
 
-    const handleSubmit = (e) => {
+    // ОСТАВЛЯЕМ ТОЛЬКО ЭТУ ВЕРСИЮ:
+    const handleSubmit = async (e) => {
         e.preventDefault();
+
         if (formData.password !== formData.confirmPassword) {
             alert("Пароли не совпадают!");
             return;
         }
-        navigate('/courier-dash', {
-            state: { userName: formData.fullName }
-        });
-    };
 
+        const data = new FormData();
+        data.append('full_name', formData.fullName);
+        data.append('email', formData.email);
+        data.append('phone', formData.phone);
+        data.append('city', formData.city);
+        data.append('transport', formData.transport);
+        data.append('password', formData.password);
+        data.append('confirm_password', formData.confirmPassword);
+
+        if (selectedFile) {
+            data.append('passport_photo', selectedFile);
+        }
+
+        try {
+            const response = await fetch('/api/v1/auth/register/courier', {
+                method: 'POST',
+                body: data,
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                login({
+                    id: result.id,
+                    name: result.full_name,
+                    email: result.email,
+                    phone: result.phone,
+                    role: result.role,
+                    transport: formData.transport
+                });
+
+                navigate('/courier-dash');
+            } else {
+                console.error("Ошибка:", result);
+                alert("Ошибка: " + (result.detail ? JSON.stringify(result.detail) : "Не удалось зарегистрироваться"));
+            }
+        } catch (error) {
+            console.error("Ошибка сети:", error);
+            alert("Ошибка соединения с сервером");
+        }
+    };
     return (
         <div className="selection-page-wrapper">
             <Header />
@@ -156,8 +195,8 @@ const CourierRegistration = () => {
                                         <select name="transport" value={formData.transport} onChange={handleChange} className="reg-select-field" required>
                                             <option value="">Выберите тип транспорта</option>
                                             <option value="foot">Пешком</option>
-                                            <option value="bicycle">Велосипед</option>
                                             <option value="car">Автомобиль</option>
+                                            <option value="van">Газель</option>
                                         </select>
                                     </div>
                                 </div>
@@ -180,7 +219,6 @@ const CourierRegistration = () => {
                             <button type="submit" className="reg-submit-btn">Зарегистрироваться</button>
 
                             <div className="reg-footer-container">
-                                {/* Та самая фраза про условия */}
                                 <p className="reg-footer-text mb-4">
                                     Нажимая на кнопку, вы соглашаетесь с{' '}
                                     <span className="reg-link">Условиями использования</span> и{' '}
