@@ -3,8 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.session import arango_instance
-from app.db.users import ensure_users_collection
-from app.db.orders import get_available_orders
 from app.api.hello import router as hello_router
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
@@ -13,6 +11,7 @@ from app.api.courier import router as courier_router
 import logging
 import time
 
+from app.db.init_db import init_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,8 +37,6 @@ async def lifespan(app: FastAPI):
         logger.error("Критическая ошибка: База данных не ответила.")
         raise RuntimeError("Could not connect to ArangoDB")
 
-    ensure_users_collection()
-    get_available_orders()
     ensure_default_admin()
     logger.info("Коллекции БД инициализированы.")
 
