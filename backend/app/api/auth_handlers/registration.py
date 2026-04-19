@@ -3,6 +3,7 @@ import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
+from app.db.events import write_event
 from app.models.user import CustomerRegisterRequest, UserResponse
 from app.services.auth_service import register_courier, register_customer
 
@@ -14,7 +15,7 @@ UPLOAD_DIR = "uploads/passports"
 @router.post("/register/customer", response_model=UserResponse, status_code=201)
 def customer_register(data: CustomerRegisterRequest):
     try:
-        return register_customer(
+        user = register_customer(
             full_name=data.full_name,
             email=data.email,
             phone=data.phone,
@@ -22,6 +23,12 @@ def customer_register(data: CustomerRegisterRequest):
             confirm_password=data.confirm_password,
             address=data.address,
         )
+        write_event(
+            "customer_registered",
+            description=data.full_name,
+            user_id=user.get("id"),
+        )
+        return user
     except ValueError as e:
         msg = str(e)
         if msg == "DUPLICATE_EMAIL":
@@ -55,7 +62,7 @@ async def courier_register(
         passport_path = file_path
 
     try:
-        return register_courier(
+        user = register_courier(
             full_name=full_name,
             email=email,
             phone=phone,
@@ -65,6 +72,12 @@ async def courier_register(
             confirm_password=confirm_password,
             passport_photo_path=passport_path,
         )
+        write_event(
+            "courier_registered",
+            description=f"{full_name} • {transport}",
+            user_id=user.get("id"),
+        )
+        return user
     except ValueError as e:
         msg = str(e)
         if msg == "DUPLICATE_EMAIL":

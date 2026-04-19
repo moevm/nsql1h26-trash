@@ -26,7 +26,9 @@ const LoginPage = () => {
 
             if (response.ok) {
                 localStorage.setItem('access_token', result.access_token);
-                navigate('/courier-dash');
+                if (result.role === 'admin') navigate('/admin-dashboard');
+                else if (result.role === 'courier') navigate('/courier-dash');
+                else navigate('/customer-dashboard');
             } else {
                 alert(result.detail ? "Ошибка входа" : "Неверные данные");
             }
