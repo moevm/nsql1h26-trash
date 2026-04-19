@@ -1,17 +1,30 @@
 from contextlib import asynccontextmanager
+print(2)
 from fastapi import FastAPI
+print(4)
 from fastapi.middleware.cors import CORSMiddleware
+print(6)
 from app.core.config import settings
+print(8)
 from app.db.session import arango_instance
+print(10)
 from app.db.users import ensure_users_collection
+print(12)
 from app.db.orders import get_available_orders
+print(14)
 from app.api.hello import router as hello_router
+print(16)
 from app.api.auth import router as auth_router
+print(18)
 from app.api.health import router as health_router
+print(20)
 from app.services.auth_service import ensure_default_admin
 from app.api.courier import router as courier_router
+from app.api.orders import router as orders_router
+from app.api.deps import get_current_active_client
 import logging
 import time
+from fastapi.openapi.utils import get_openapi
 
 
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Проверка готовности зависимостей...")
+    logger.info("Проверка готовности зависимостей...аераенреаоваеновк56еоекоекаоке")
 
     connected = False
     attempts = 5
@@ -51,6 +64,38 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Trash Service", lifespan=lifespan)
 
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version="1.0.0",
+        description="Trash Service API",
+        routes=app.routes,
+    )
+    
+    # Правильная схема Bearer Auth
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Вставьте токен в формате: Bearer <токен>"
+        }
+    }
+    
+    # Применяем схему ко всем защищённым роутерам
+    for route in openapi_schema["paths"].values():
+        for method in route.values():
+            if isinstance(method, dict):
+                method["security"] = [{"BearerAuth": []}]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -63,3 +108,4 @@ app.include_router(hello_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1/auth")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(courier_router, prefix="/api/v1")
+app.include_router(orders_router, prefix="/api/v1")

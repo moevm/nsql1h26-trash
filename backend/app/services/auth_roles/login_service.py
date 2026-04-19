@@ -33,3 +33,15 @@ def create_access_token(user: dict) -> str:
         "exp": int(exp.timestamp()),
     }
     return jwt.encode(payload, str(settings.JWT_SECRET), algorithm=str(settings.JWT_ALGORITHM))
+
+
+
+
+def decode_access_token(token: str) -> dict:
+    """Декодирует токен"""
+    payload = jwt.decode(
+        token, 
+        settings.SECRET_KEY, 
+        algorithms=[settings.ALGORITHM or "HS256"]
+    )
+    return payload

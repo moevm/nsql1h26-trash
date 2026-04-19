@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile
     container_name: trash_backend
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8001:8000"
     environment:
       TRASH_DB_HOST: db
       TRASH_DB_PORT: "8529"

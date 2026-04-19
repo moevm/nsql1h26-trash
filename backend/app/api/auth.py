@@ -1,3 +1,8 @@
-from app.api.auth_handlers import router
+from fastapi import APIRouter
+from app.api.auth_handlers.login import router as login_router
+from app.api.auth_handlers.registration import router as registration_router
 
-__all__ = ["router"]
+router = APIRouter()
+
+router.include_router(login_router, prefix="/auth")
+router.include_router(registration_router, prefix="/auth")
