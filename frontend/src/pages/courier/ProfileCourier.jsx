@@ -1,19 +1,31 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../AuthContext.jsx';
 import Sidebar from './Sidebar.jsx';
 
 const ProfileCourier = () => {
-    const location = useLocation();
-    const [userName] = useState(location.state?.userName || "Дмитрий К.");
+    const { user } = useAuth();
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
-        firstName: 'Дмитрий',
-        lastName: 'Ковалев',
-        phone: '+7 (905) 123-45-67',
-        email: 'dmitry.k@example.com',
+        firstName: '',
+        lastName: '',
+        phone: '',
+        email: '',
         transport: 'foot'
     });
+    useEffect(() => {
+        if (user) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setFormData({
+                firstName: user.name?.split(' ')[0] || '',
+                lastName: user.name?.split(' ')[1] || '',
+                phone: user.phone || '',
+                email: user.email || '',
+                transport: user.transport || 'foot'
+            });
+        }
+    }, [user]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -22,7 +34,7 @@ const ProfileCourier = () => {
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-background-light text-text-main font-display">
-            <Sidebar activePage="profile" userName={userName} />
+            <Sidebar activePage="profile" />
 
             <main className="flex flex-1 flex-col overflow-y-auto">
                 <header className="h-20 flex items-center justify-between px-8 border-b border-slate-200 bg-white shrink-0 z-10">
@@ -41,7 +53,7 @@ const ProfileCourier = () => {
                     <div className="profile-card">
                         <div className="flex flex-col items-center gap-6 mb-10">
                             <div className="avatar-wrapper"
-                                 style={{ backgroundImage: `url('https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}')` }}>
+                                 style={{ backgroundImage: `url('https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'Guest'}')` }}>
                                 <button className="absolute bottom-1 right-1 flex items-center justify-center rounded-full bg-primary text-text-main p-2 hover:bg-primary-dark shadow-md transition-all hover:scale-110">
                                     <span className="icon-base text-xl">photo_camera</span>
                                 </button>

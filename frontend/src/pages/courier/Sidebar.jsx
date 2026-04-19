@@ -1,16 +1,20 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../AuthContext';
 
-const Sidebar = ({ activePage, userName = "Алексей К." }) => {
+const Sidebar = ({ activePage }) => {
     const navigate = useNavigate();
-
+    const { user, loading } = useAuth();
+    if (loading) {
+        return <aside className="sidebar-wrapper">Загрузка...</aside>;
+    }
     const menuItems = [
         { id: 'available', icon: 'format_list_bulleted', label: 'Доступные заказы', path: '/courier-dash' },
         { id: 'my-orders', icon: 'local_shipping', label: 'Мои заказы', path: '/courier-orders' },
         { id: 'wallet', icon: 'account_balance_wallet', label: 'Кошелек', path: '/courier-wallet' },
         { id: 'profile', icon: 'person', label: 'Профиль', path: '/courier-profile' },
     ];
-
+    console.log("Данные пользователя в Sidebar:", user);
     return (
         <aside className="sidebar-wrapper">
             <div className="p-6">
@@ -26,7 +30,7 @@ const Sidebar = ({ activePage, userName = "Алексей К." }) => {
                     {menuItems.map((item) => (
                         <button
                             key={item.id}
-                            onClick={() => navigate(item.path, { state: { userName } })}
+                            onClick={() => navigate(item.path)}
                             className={`sidebar-nav-item ${
                                 activePage === item.id ? 'sidebar-nav-active' : 'sidebar-nav-inactive'
                             }`}
@@ -45,10 +49,15 @@ const Sidebar = ({ activePage, userName = "Алексей К." }) => {
             <div className="mt-auto p-6 border-t border-[#e7f3e7]">
                 <div className="sidebar-profile-card">
                     <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden border border-black/5">
-                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}`} alt="avatar" />
+                        <img
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.full_name || 'Guest'}`}
+                            alt="avatar"
+                        />
                     </div>
                     <div className="flex flex-col overflow-hidden">
-                        <span className="text-sm font-bold truncate">{userName}</span>
+                    <span className="text-sm font-bold truncate">
+                        {user ? user.full_name : "Гость"}
+                    </span>
                         <span className="sidebar-rating">Рейтинг 5.0 ★</span>
                     </div>
                 </div>
