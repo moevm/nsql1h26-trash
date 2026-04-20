@@ -10,8 +10,6 @@ import uuid
 
 
 
-
-
 router = APIRouter(
     prefix="/orders",
     tags=["Orders"]
@@ -28,27 +26,37 @@ async def test_orders(current_user: UserResponse = Depends(get_current_active_cl
         "role": current_user.role
     }
 
-
 @router.post("/", response_model=Order, status_code=201)
 async def create_new_order(
-    order_in: OrderCreate,
-    current_user: UserResponse = Depends(get_current_active_client)
+        order_in: OrderCreate,
+        current_user: UserResponse = Depends(get_current_active_client)
 ):
-    """Создание нового заказа (Сценарий 2.1)"""
+    """Создание нового заказа и создание связи Owns"""
     try:
-        # Используем id из токена
         client_key = current_user.id
 
-        created_order = create_order(
-            order_in=order_in,
-            client_key=client_key
-        )
+        new_order = create_order(order_in, client_key=current_user.id)
 
-        return created_order
+        created_at_str = new_order.created_at.isoformat() if isinstance(new_order.created_at, datetime) else str(new_order.created_at)
+
+        db = arango_instance.db
+        owns_col = db.collection("Owns")
+
+        owns_col.insert({
+            "_from": f"users/{current_user.id}",
+            "_to": f"orders/{new_order.id}",
+            "created_at": created_at_str
+        })
+
+        return new_order
 
     except Exception as e:
+        print(f"!!! ОШИБКА ПРИ СОЗДАНИИ ЗАКАЗА: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Не удалось создать заказ: {str(e)}"
         )
 
