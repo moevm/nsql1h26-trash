@@ -42,7 +42,7 @@ function App() {
                     <Route path="/courier-orders" element={<CourierOrders />} />
                     <Route path="/courier-wallet" element={<WalletCourier />} />
                     <Route path="/courier-profile" element={<ProfileCourier />} />
-                    <Route path="/order-details" element={<OrderDetails />} />
+                    <Route path="/order-details/:orderId" element={<OrderDetails />} />
                     <Route path="/order-history/:id" element={<CompletedOrderDetails />} />
                     <Route path="/courier-withdraw" element={<CourierWithdrawMoney />} />
                     <Route path="/change-password" element={<ChangePassword />} />
