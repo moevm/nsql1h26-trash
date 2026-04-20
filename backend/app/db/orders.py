@@ -23,6 +23,10 @@ def _ensure_collections():
         db.create_collection(EXECUTES_COLLECTION, edge=True)
         print(f"✅ Создана коллекция (edge): {EXECUTES_COLLECTION}")
 
+    if not db.has_collection("Owns"):
+        db.create_collection("Owns", edge=True)
+        print("✅ Создана Edge-коллекция: Owns")    
+
 
 def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
     """
@@ -43,6 +47,22 @@ def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
 
 
     order_data = result["new"]
+    order_key = order_data["_key"]
+
+    owns_data = {
+        "_from": f"users/{client_key}",
+        "_to": f"orders/{order_key}",
+        "created_at": str(datetime.now()),
+        "relation_type": "owns"
+    }
+
+
+    try:
+        db.collection("Owns").insert(owns_data)
+        print(f"Создана связь Owns: users/{client_key} → orders/{order_key}")
+    except Exception as e:
+        print(f"[Error] Не удалось создать связь Owns: {e}")
+
     return Order(**order_data)
 
 
@@ -90,6 +110,48 @@ def get_available_orders(type_filter: str = None):
             "color": style["color"],
             "bg": style["bg"],
             "isNew": True
+        })
+
+    return raw_orders
+
+
+
+def get_my_orders(client_key: str, status_filter: str = None):
+    """
+    Получить все заказы конкретного клиента
+    """
+    _ensure_collections()
+    db = arango_instance.db
+
+    query = """
+    FOR o IN @@orders
+        FILTER o.client_key == @client_key
+        FILTER @status_filter == null OR o.status == @status_filter
+        SORT o.created_at DESC
+        RETURN o
+    """
+
+    cursor = db.aql.execute(
+        query,
+        bind_vars={
+            "@orders": ORDERS_COLLECTION,
+            "client_key": client_key,
+            "status_filter": status_filter
+        }
+    )
+
+    raw_orders = list(cursor)
+
+    for o in raw_orders:
+        style = ORDER_STYLES.get(
+            o.get("waste_type"),
+            {"icon": "eco", "color": "text-green-500", "bg": "bg-green-50"}
+        )
+        o.update({
+            "id": o.get("_key"),
+            "icon": style["icon"],
+            "color": style["color"],
+            "bg": style["bg"],
         })
 
     return raw_orders
