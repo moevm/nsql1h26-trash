@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.models.user import CustomerRegisterRequest, UserResponse
 from app.services.auth_service import register_courier, register_customer
+from app.db.events import log_event
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ UPLOAD_DIR = "uploads/passports"
 @router.post("/register/customer", response_model=UserResponse, status_code=201)
 def customer_register(data: CustomerRegisterRequest):
     try:
-        return register_customer(
+        result = register_customer(
             full_name=data.full_name,
             email=data.email,
             phone=data.phone,
@@ -30,6 +31,19 @@ def customer_register(data: CustomerRegisterRequest):
                 detail="Пользователь с таким email уже существует",
             )
         raise HTTPException(status_code=422, detail=msg)
+
+    try:
+        log_event(
+            event_type="user_registered",
+            title="Регистрация нового клиента",
+            description=f"{data.full_name}",
+            related_id=result["id"],
+            related_type="user",
+        )
+    except Exception as e:
+        print(f"[WARN] Не удалось записать событие регистрации клиента: {e}")
+
+    return result
 
 
 @router.post("/register/courier", response_model=UserResponse, status_code=201)
@@ -55,7 +69,7 @@ async def courier_register(
         passport_path = file_path
 
     try:
-        return register_courier(
+        result = register_courier(
             full_name=full_name,
             email=email,
             phone=phone,
@@ -73,3 +87,16 @@ async def courier_register(
                 detail="Пользователь с таким email уже существует",
             )
         raise HTTPException(status_code=422, detail=msg)
+
+    try:
+        log_event(
+            event_type="user_registered",
+            title="Регистрация нового курьера",
+            description=f"{full_name} • {transport}",
+            related_id=result["id"],
+            related_type="user",
+        )
+    except Exception as e:
+        print(f"[WARN] Не удалось записать событие регистрации курьера: {e}")
+
+    return result
