@@ -21,10 +21,17 @@ class OrderBase(BaseModel):
 class OrderCreate(OrderBase):
     """Модель для создания заказа"""
     status: OrderStatus = Field("searching", description="Начальный статус")
+    price: float = Field(..., gt=0, description="Цена заказа")
 
 class StatusUpdate(BaseModel):
     """Модель для статуса заказа"""
     status: str
+
+class Transaction(BaseModel):
+    amount: float
+    type: str
+    status: str
+    timestamp: str
 
 class Order(OrderBase):
     """Полная модель заказа для ответа"""
@@ -32,6 +39,9 @@ class Order(OrderBase):
     status: OrderStatus
     completion_photo: Optional[str] = None
     created_at: Optional[datetime] = None
+    client_name: Optional[str] = None
+    transaction: Optional[Transaction] = None
+    price: Optional[float] = None
 
     class Config:
         populate_by_name = True

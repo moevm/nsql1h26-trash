@@ -24,7 +24,7 @@ def _ensure_collections():
         print(f"✅ Создана коллекция (edge): {EXECUTES_COLLECTION}")
 
 
-def create_order(order_in: OrderCreate, client_key: str) -> Order:
+def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
     """
     Создаёт новый заказ.
     client_key — _key пользователя-заказчика (нужен для связи)
@@ -35,6 +35,8 @@ def create_order(order_in: OrderCreate, client_key: str) -> Order:
 
     order_dict = order_in.model_dump()
     order_dict["client_key"] = client_key
+    order_dict["price"] = price
+    print(f"DEBUG: [DB] Сохраняю заказ с ценой: {price}")
     order_dict["created_at"] = str(datetime.now())
 
     result = db.collection(ORDERS_COLLECTION).insert(order_dict, return_new=True)
