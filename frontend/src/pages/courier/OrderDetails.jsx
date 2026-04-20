@@ -16,13 +16,14 @@ const OrderDetails = () => {
     const [hasPhoto, setHasPhoto] = useState(false);
 
     useEffect(() => {
-        fetch(`/api/v1/orders/${orderId}`, { // Убедись, что путь совпадает с бэкендом
+        fetch(`/api/v1/orders/${orderId}`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('access_token')}`
             }
         })
             .then(res => res.json())
             .then(data => {
+                console.log("DEBUG: [FRONTEND] Данные от API:", data);
                 setOrder(data);
                 setStatus(data.status);
                 setHasPhoto(!!data.completion_photo);
@@ -219,9 +220,12 @@ const OrderDetails = () => {
                                         <span className="icon-base text-[18px]">payments</span>
                                         Финансовые детали
                                     </h3>
+                                    {/* Финансовые детали */}
                                     <div className="flex items-baseline justify-between mb-2">
                                         <span className="text-gray-600 font-medium">Сумма выплаты</span>
-                                        <span className="text-4xl font-black text-[#0d1b0d]">{order.price} ₽</span>
+                                        <span className="text-4xl font-black text-[#0d1b0d]">
+                                        {order.transaction ? `${order.transaction.amount} ₽` : (order.price ? `${order.price} ₽` : '0 ₽')}
+                                        </span>
                                     </div>
                                     <div className="flex items-center justify-between py-3 border-t border-dashed border-gray-200 mt-4 mb-6">
                                         <span className="text-sm text-gray-500">Тип оплаты</span>
