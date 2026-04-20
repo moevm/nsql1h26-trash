@@ -27,3 +27,10 @@ class LoginResponse(UserResponse):
     message: str
     access_token: str
     token_type: str
+
+class ProfileUpdateCourier(BaseModel):
+    firstName: str
+    lastName: str
+    phone: str
+    email: str
+    transport: str
