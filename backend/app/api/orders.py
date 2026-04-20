@@ -207,3 +207,59 @@ async def upload_completion_photo(
 
     return {"message": "Фото успешно загружено", "photo_path": file_path}
 
+
+@router.get("/my/{order_id}", response_model=Order)
+async def get_my_order_detail(
+    order_id: str,
+    current_user: UserResponse = Depends(get_current_active_client)
+):
+    """
+    2.5 Просмотр деталей заказа клиентом
+    """
+    try:
+        db = arango_instance.db
+
+        order_doc = db.collection("Orders").get(order_id)
+
+        if not order_doc:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+
+        if order_doc.get("client_key") != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="У вас нет доступа к этому заказу"
+            )
+
+        order_doc["id"] = order_doc.get("_key")
+
+        # === Получаем информацию о курьере, если он назначен ===
+        query_courier = """
+        FOR courier, edge IN 1..1 INBOUND @order_id Executes
+            RETURN {
+                id: courier._key,
+                full_name: courier.full_name,
+                phone: courier.phone,
+                rating: courier.rating,
+                transport: courier.transport
+            }
+        """
+
+        cursor = db.aql.execute(query_courier, bind_vars={"order_id": f"orders/{order_id}"})
+        courier_info = cursor.next() if not cursor.empty() else None
+
+        if courier_info:
+            order_doc["courier"] = courier_info
+
+        for key in ["_id", "_rev", "_key"]:
+            order_doc.pop(key, None)
+
+        return order_doc
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Не удалось загрузить детали заказа: {str(e)}"
+        )
+

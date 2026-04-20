@@ -66,6 +66,7 @@ def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
     return Order(**order_data)
 
 
+
 def get_available_orders(type_filter: str = None):
     _ensure_collections()
     db = arango_instance.db
@@ -155,3 +156,7 @@ def get_my_orders(client_key: str, status_filter: str = None):
         })
 
     return raw_orders
+
+
+
+    
