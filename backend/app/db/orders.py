@@ -2,7 +2,7 @@ from datetime import datetime
 from app.db.session import arango_instance
 from app.models.order import OrderCreate, Order, OrderStatus
 
-ORDERS_COLLECTION = "orders"
+ORDERS_COLLECTION = "Orders"
 EXECUTES_COLLECTION = "Executes"
 
 ORDER_STYLES = {
@@ -32,15 +32,14 @@ def create_order(order_in: OrderCreate, client_key: str) -> Order:
     _ensure_collections()
     db = arango_instance.db
 
-    
+
     order_dict = order_in.model_dump()
-    order_dict["client_key"] = client_key          
+    order_dict["client_key"] = client_key
     order_dict["created_at"] = str(datetime.now())
 
-    
     result = db.collection(ORDERS_COLLECTION).insert(order_dict, return_new=True)
-    
-    
+
+
     order_data = result["new"]
     return Order(**order_data)
 
@@ -48,7 +47,11 @@ def create_order(order_in: OrderCreate, client_key: str) -> Order:
 def get_available_orders(type_filter: str = None):
     _ensure_collections()
     db = arango_instance.db
-
+    all_docs = list(db.collection(ORDERS_COLLECTION).all())
+    print(f"DEBUG: Всего документов в коллекции '{ORDERS_COLLECTION}': {len(all_docs)}")
+    if len(all_docs) > 0:
+        print(f"DEBUG: Статус первого документа: {all_docs[0].get('status')}")
+        print(f"DEBUG: Тип отходов первого документа: {all_docs[0].get('waste_type')}")
     query = """
     FOR o IN @@orders
         FILTER o.status == 'searching'

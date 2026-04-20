@@ -1,40 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 
 const CourierDashboard = () => {
     const [activeTab, setActiveTab] = useState('Все заказы');
+    const [orders, setOrders] = useState([]);
     const location = useLocation();
     const userName = location.state?.userName || "Алексей К.";
     const navigate = useNavigate();
 
-    const orders = [
-        {
-            id: '4829',
-            type: 'Бытовой мусор',
-            address: 'ул. Ленина, 45, под. 3',
-            note: 'Вход со двора, код 1234',
-            price: '350',
-            time: '5 мин назад',
-            distance: '1.2 км',
-            icon: 'delete_forever',
-            color: 'text-red-500',
-            bg: 'bg-red-50',
-            isNew: true
-        },
-        {
-            id: '4831',
-            type: 'Строительный',
-            address: 'пр. Мира, 12',
-            note: 'Новостройка, есть лифт',
-            price: '1 200',
-            time: '12 мин назад',
-            distance: '5.0 км',
-            icon: 'construction',
-            color: 'text-yellow-600',
-            bg: 'bg-yellow-50'
+    const fetchOrders = async (tab) => {
+        const typeMap = {
+            'Бытовой': 'Бытовой мусор',
+            'Строительный': 'Строительный',
+            'Мебель': 'Мебель'
+        };
+
+        const typeParam = typeMap[tab] ? `?waste_type=${encodeURIComponent(typeMap[tab])}` : '';
+        const url = `/api/v1/courier/available-orders${typeParam}`;
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+            if (!response.ok) throw new Error('Ошибка сети');
+            const data = await response.json();
+            setOrders(data); // data — это уже массив
+        } catch (error) {
+            console.error("Не удалось загрузить заказы:", error);
+            setOrders([]);
         }
-    ];
+    };
+
+    // 4. Загрузка при изменении вкладки
+    useEffect(() => {
+        fetchOrders(activeTab);
+    }, [activeTab]);
 
     return (
         <div className="flex h-screen bg-background-light overflow-hidden text-text-main">
@@ -82,8 +85,10 @@ const CourierDashboard = () => {
                                             <span className="icon-base text-3xl">{order.icon}</span>
                                         </div>
                                         <div>
-                                            <h3 className="text-base font-black uppercase leading-tight">{order.type}</h3>
-                                            <p className="text-[11px] text-slate-400 font-bold mt-1 uppercase">№ {order.id} • {order.time}</p>
+                                            <h3 className="text-base font-black uppercase leading-tight">{order.waste_type}</h3>
+                                            <p className="text-[11px] text-slate-400 font-bold mt-1 uppercase">
+                                                № {order.id} • {order.scheduled_at || "Без времени"}
+                                            </p>
                                         </div>
                                     </div>
 
@@ -91,7 +96,11 @@ const CourierDashboard = () => {
                                         <span className="icon-base text-primary mt-0.5">location_on</span>
                                         <div className="min-w-0">
                                             <p className="text-sm font-bold truncate">{order.address}</p>
-                                            <p className="text-xs text-slate-400 mt-1 truncate">{order.note}</p>
+                                            <p className="text-xs text-slate-400 mt-1 truncate">
+                                                {order.address_details?.entrance ? `Подъезд: ${order.address_details.entrance} ` : ''}
+                                                {order.address_details?.floor ? `Этаж: ${order.address_details.floor} ` : ''}
+                                                {order.address_details?.intercom ? `Домофон: ${order.address_details.intercom}` : ''}
+                                            </p>
                                         </div>
                                     </div>
 
@@ -109,7 +118,7 @@ const CourierDashboard = () => {
                                         <p className="text-2xl font-black mt-1">{order.price} ₽</p>
                                     </div>
                                     <button
-                                        onClick={() => navigate('/order-details', { state: { order, userName } })}
+                                        onClick={() => navigate(`/order-details/${order.id}`)}
                                         className="btn-take"
                                     >
                                         Взять

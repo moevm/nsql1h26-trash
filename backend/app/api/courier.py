@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Query
-from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status
+from app.api.deps import get_current_active_client
+from app.models.user import UserResponse
 from app.db.orders import get_available_orders
+from app.api.deps import get_current_active_courier
+router = APIRouter(
+    prefix="/courier",
+    tags=["Courier"]
+)
 
-router = APIRouter(prefix="/courier", tags=["Courier Operations"])
-
-@router.get("/orders/available")
-def list_available_orders(type: Optional[str] = Query(None)):
-    # Передаем type из URL прямо в функцию доступа к базе
-    return {"orders": get_available_orders(type_filter=type)}
+@router.get("/available-orders", response_model=list[dict])
+async def list_available_for_courier(
+        waste_type: str = None,
+        current_user: UserResponse = Depends(get_current_active_courier)
+):
+    """Список всех доступных заказов"""
+    return get_available_orders(type_filter=waste_type)

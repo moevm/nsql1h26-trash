@@ -1,37 +1,100 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 
 const OrderDetails = () => {
-    const location = useLocation();
+    const { orderId } = useParams(); // Получаем ID из URL
     const navigate = useNavigate();
 
-    const [status, setStatus] = useState('pending');
+    const [order, setOrder] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [status, setStatus] = useState(null);
 
-    const orderData = location.state?.order || {};
-    const order = {
-        id: orderData.id || "4829",
-        type: orderData.type || "Бытовой мусор",
-        weight: orderData.weight || "~ 5-10 кг (2 пакета)",
-        description: orderData.description || "Два больших черных пакета с бытовым мусором. Стекла нет, только пластик и бумага. Стоят у двери в коридоре.",
-        address: orderData.address || "ул. Ленина, 45",
-        price: orderData.price || "350",
-        details: {
-            entry: orderData.details?.entry || "3",
-            floor: orderData.details?.floor || "4",
-            intercom: orderData.details?.intercom || "1234"
-        },
-        client: orderData.client || "Мария Иванова"
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [filePreview, setFilePreview] = useState(null);
+    const [photoUploading, setPhotoUploading] = useState(false);
+    const [hasPhoto, setHasPhoto] = useState(false);
+
+    useEffect(() => {
+        fetch(`/api/v1/orders/${orderId}`, { // Убедись, что путь совпадает с бэкендом
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                setOrder(data);
+                setStatus(data.status);
+                setHasPhoto(!!data.completion_photo);
+                setLoading(false);
+            })
+            .catch(err => console.error("Ошибка:", err));
+    }, [orderId]);
+    if (loading) return <div>Загрузка заказа...</div>;
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setSelectedFile(file);
+            setFilePreview(URL.createObjectURL(file));
+        }
     };
 
-    const handleAction = () => {
-        if (status === 'pending') setStatus('in_progress');
-        else if (status === 'in_progress') setStatus('completed');
+    const handleUploadPhoto = async () => {
+        setPhotoUploading(true);
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        try {
+            const res = await fetch(`/api/v1/orders/${orderId}/photo`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
+                body: formData
+            });
+            if (res.ok) {
+                setHasPhoto(true);
+                alert("Фото успешно загружено!");
+            }
+        } catch (err) { alert("Ошибка загрузки"); }
+        finally { setPhotoUploading(false); }
+    };
+    const handleAction = async () => {
+        const nextStatus = status === 'searching' ? 'active' : 'done';
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/v1/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({ status: nextStatus }),
+            });
+
+            if (res.ok) {
+                // Мгновенно обновляем стейты, чтобы интерфейс перерисовался
+                setStatus(nextStatus);
+
+                // Получаем свежие данные с сервера
+                const updatedRes = await fetch(`/api/v1/orders/${orderId}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                });
+                const updatedData = await updatedRes.json();
+
+                setOrder(updatedData);
+                setHasPhoto(!!updatedData.completion_photo);
+
+            } else {
+                const err = await res.json();
+                alert(err.detail);
+            }
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
     };
 
     return (
         <div className="bg-[#f6f8f6] text-[#0d1b0d] antialiased h-screen overflow-hidden flex font-display">
-            <Sidebar activePage="available" userName="Алексей К." />
+            <Sidebar activePage="available" />
 
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f6f8f6]">
                 {/* Header*/}
@@ -45,12 +108,12 @@ const OrderDetails = () => {
                         <h2 className="text-2xl font-bold text-[#0d1b0d]">Детали заказа №{order.id}</h2>
 
                         {/* Статус */}
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
-                            status === 'pending' ? 'bg-orange-100 text-orange-600' :
-                                status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                        <span className={`... ${
+                            status === 'searching' ? 'bg-orange-100 text-orange-600' :
+                                status === 'active' ? 'bg-blue-100 text-blue-700' :
                                     'bg-green-100 text-green-700'
                         }`}>
-                            {status === 'pending' ? 'Ожидает' : status === 'in_progress' ? 'В работе' : 'Выполнен'}
+                            {status === 'searching' ? 'Ожидает' : status === 'active' ? 'В работе' : 'Выполнен'}
                         </span>
                     </div>
                 </header>
@@ -75,7 +138,7 @@ const OrderDetails = () => {
                                                 <span className="p-1.5 bg-red-50 text-red-500 rounded-md">
                                                     <span className="icon-base text-lg">delete_forever</span>
                                                 </span>
-                                                <span className="text-base font-semibold text-[#0d1b0d]">{order.type}</span>
+                                                <span className="text-base font-semibold text-[#0d1b0d]">{order.waste_type}</span>
                                             </div>
                                         </div>
                                         <div>
@@ -84,7 +147,7 @@ const OrderDetails = () => {
                                                 <span className="p-1.5 bg-blue-50 text-blue-500 rounded-md">
                                                     <span className="icon-base text-lg">scale</span>
                                                 </span>
-                                                <span className="text-base font-semibold text-[#0d1b0d]">{order.weight}</span>
+                                                <span className="text-base font-semibold text-[#0d1b0d]">{order.volume} м³</span>
                                             </div>
                                         </div>
                                         <div className="sm:col-span-2">
@@ -113,19 +176,39 @@ const OrderDetails = () => {
                                         </div>
                                         <div className="flex flex-wrap gap-3">
                                             <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 text-sm font-medium text-[#0d1b0d]">
-                                                Подъезд: <span className="font-bold">{order.details.entry}</span>
+                                                Подъезд: <span className="font-bold">{order.address_details?.entrance || '-'}</span>
                                             </div>
                                             <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 text-sm font-medium text-[#0d1b0d]">
-                                                Этаж: <span className="font-bold">{order.details.floor}</span>
+                                                Этаж: <span className="font-bold">{order.address_details?.floor || '-'}</span>
                                             </div>
                                             <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 text-sm font-medium text-[#0d1b0d]">
-                                                Домофон: <span className="font-bold">{order.details.intercom}</span>
+                                                Домофон: <span className="font-bold">{order.address_details?.intercom || '-'}</span>
                                             </div>
                                         </div>
                                     </div>
+
+                                    {status === 'active' && !hasPhoto && (
+                                        <div className="mt-6 pt-6 border-t border-gray-100">
+                                            <h3 className="text-sm font-bold text-[#0d1b0d] mb-4">Фотофиксация (Обязательно)</h3>
+                                            <input type="file" id="photo" className="hidden" onChange={handleFileChange} />
+                                            <label htmlFor="photo" className="block cursor-pointer p-4 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-green-500 transition-colors">
+                                                {filePreview ? <img src={filePreview} className="h-32 mx-auto rounded" /> : "Нажмите, чтобы выбрать фото"}
+                                            </label>
+                                            {selectedFile && (
+                                                <button
+                                                    onClick={handleUploadPhoto}
+                                                    disabled={photoUploading}
+                                                    className="mt-4 w-full bg-black text-white py-3 rounded-xl font-bold hover:bg-gray-800 transition-all"
+                                                >
+                                                    {photoUploading ? 'Загрузка...' : 'Загрузить фото'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </section>
                         </div>
+
 
                         {/* Правая колонка */}
                         <div className="space-y-6">
@@ -147,20 +230,22 @@ const OrderDetails = () => {
 
                                     <button
                                         onClick={handleAction}
-                                        disabled={status === 'completed'}
+                                        disabled={loading || status === 'done' || (status === 'active' && !hasPhoto)}
                                         className={`w-full font-black py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-2 text-lg ${
-                                            status === 'completed'
-                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
+                                            (status === 'done' || (status === 'active' && !hasPhoto))
+                                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed shadow-none' // Сделали серым, если фото не загружено
                                                 : 'bg-[#13ec13] hover:bg-[#0fd60f] text-[#0d1b0d] shadow-lg shadow-green-200 hover:shadow-xl hover:-translate-y-0.5 active:scale-95'
                                         }`}
                                     >
                                         <span>
-                                            {status === 'pending' ? 'Взять заказ' :
-                                                status === 'in_progress' ? 'Завершить заказ' : 'Заказ выполнен'}
+                                        {loading ? 'Обработка...' :
+                                            status === 'searching' ? 'Взять заказ' :
+                                                status === 'active' ? (hasPhoto ? 'Завершить заказ' : 'Сначала добавьте фото') : 'Заказ выполнен'}
                                         </span>
                                         <span className="icon-base">
-                                            {status === 'pending' ? 'pan_tool' :
-                                                status === 'in_progress' ? 'task_alt' : 'verified'}
+                                        {loading ? 'autorenew' :
+                                            status === 'searching' ? 'pan_tool' :
+                                                status === 'active' ? 'task_alt' : 'verified'}
                                         </span>
                                     </button>
                                 </div>
@@ -169,10 +254,10 @@ const OrderDetails = () => {
                             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                                 <div className="p-5 flex items-center gap-4">
                                     <div className="h-12 w-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xl uppercase">
-                                        {order.client.charAt(0)}
+                                        {order.client_name ? order.client_name.charAt(0) : '?'}
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-[#0d1b0d] leading-none">{order.client}</h4>
+                                        <h4 className="font-bold text-[#0d1b0d] leading-none">{order.client_name || "Неизвестный заказчик"}</h4>
                                         <p className="text-[10px] text-gray-400 uppercase font-black mt-1">Заказчик</p>
                                     </div>
                                 </div>
