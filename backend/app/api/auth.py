@@ -4,5 +4,5 @@ from app.api.auth_handlers.registration import router as registration_router
 
 router = APIRouter()
 
-router.include_router(login_router, prefix="/auth")
-router.include_router(registration_router, prefix="/auth")
+router.include_router(login_router)
+router.include_router(registration_router)

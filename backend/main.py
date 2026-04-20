@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Проверка готовности зависимостей...аераенреаоваеновк56еоекоекаоке")
+    logger.info("Проверка готовности зависимостей...")
 
     connected = False
     attempts = 5
@@ -67,14 +67,14 @@ app = FastAPI(title="Trash Service", lifespan=lifespan)
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-    
+
     openapi_schema = get_openapi(
         title=app.title,
         version="1.0.0",
         description="Trash Service API",
         routes=app.routes,
     )
-    
+
     # Правильная схема Bearer Auth
     openapi_schema["components"]["securitySchemes"] = {
         "BearerAuth": {
@@ -84,13 +84,13 @@ def custom_openapi():
             "description": "Вставьте токен в формате: Bearer <токен>"
         }
     }
-    
+
     # Применяем схему ко всем защищённым роутерам
     for route in openapi_schema["paths"].values():
         for method in route.values():
             if isinstance(method, dict):
                 method["security"] = [{"BearerAuth": []}]
-    
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
