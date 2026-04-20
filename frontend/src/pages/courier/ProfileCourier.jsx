@@ -4,8 +4,9 @@ import { useAuth } from '../../AuthContext.jsx';
 import Sidebar from './Sidebar.jsx';
 
 const ProfileCourier = () => {
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const navigate = useNavigate();
+    const [saving, setSaving] = useState(false);
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -30,6 +31,38 @@ const ProfileCourier = () => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    const handleSave = async (e) => {
+        e.preventDefault();
+        console.log("Кнопка нажата, данные:", formData);
+        setSaving(true);
+        try {
+            const res = await fetch('/api/v1/courier/me', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify(formData)
+            });
+
+            if (res.ok) {
+                updateUser({
+                    name: `${formData.firstName} ${formData.lastName}`,
+                    phone: formData.phone,
+                    email: formData.email,
+                    transport: formData.transport
+                });
+                alert("Профиль успешно обновлен!");
+            } else {
+                const err = await res.json();
+                alert(err.detail || "Ошибка при сохранении");
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -64,7 +97,7 @@ const ProfileCourier = () => {
                         </div>
 
                         {/* Форма */}
-                        <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+                        <form className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <InputGroup label="Имя" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="Ваше имя" />
                                 <InputGroup label="Фамилия" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Ваша фамилия" />
@@ -88,14 +121,19 @@ const ProfileCourier = () => {
                             <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-between items-center border-t border-slate-100 mt-8">
                                 <button
                                     type="button"
-                                    onClick={() => navigate('/change-password')} // Обработчик клика
+                                    onClick={() => navigate('/change-password')}
                                     className="text-sm font-bold text-text-secondary hover:text-text-main flex items-center gap-2 transition-colors group"
                                 >
                                     <span className="icon-base text-lg group-hover:rotate-180 transition-transform duration-500">lock_reset</span>
                                     Сменить пароль
                                 </button>
-                                <button type="submit" className="w-full sm:w-auto bg-primary hover:bg-primary-dark text-text-main font-black py-3.5 px-10 rounded-xl shadow-xl shadow-primary/20 transition-all hover:-translate-y-0.5 active:scale-95">
-                                    Сохранить профиль
+                                <button
+                                    type="button"
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="..."
+                                >
+                                    {saving ? 'Сохранение...' : 'Сохранить профиль'}
                                 </button>
                             </div>
                         </form>
