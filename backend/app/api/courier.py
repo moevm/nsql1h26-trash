@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from app.api.deps import get_current_active_client
 from app.models.user import UserResponse, ProfileUpdateCourier
 from app.db.orders import get_available_orders
@@ -59,21 +61,32 @@ async def update_my_profile(
     return {"message": "Профиль успешно обновлен"}
 
 @router.get("/my-orders")
-async def get_courier_orders(current_user: UserResponse = Depends(get_current_active_courier)):
+async def get_courier_orders(
+        search: Optional[str] = Query(None),
+        current_user: UserResponse = Depends(get_current_active_courier)
+):
     db = arango_instance.db
 
-    # Используем current_user.id для доступа к ID пользователя
     query = """
     FOR edge IN Executes
         FILTER edge._from == @courier_id
         LET order = DOCUMENT(edge._to)
+        
+        // Фильтр поиска
+        FILTER @search == null OR (
+            CONTAINS(LOWER(order._key), LOWER(@search)) OR
+            CONTAINS(LOWER(order.address), LOWER(@search)) OR
+            CONTAINS(LOWER(TO_STRING(order.price)), LOWER(@search))
+        )
+        
         SORT order.created_at DESC
-        RETURN MERGE(order, { 
-            "id": order._key 
-        })
+        RETURN MERGE(order, { "id": order._key })
     """
 
-    bind_vars = {"courier_id": f"users/{current_user.id}"}
+    bind_vars = {
+        "courier_id": f"users/{current_user.id}",
+        "search": search
+    }
 
     cursor = db.aql.execute(query, bind_vars=bind_vars)
     return list(cursor)

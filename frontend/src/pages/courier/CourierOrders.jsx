@@ -6,26 +6,33 @@ const CourierOrdersHistory = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const location = useLocation();
+    const [searchQuery, setSearchQuery] = useState('');
     const navigate = useNavigate();
     const userName = location.state?.userName || "Алексей К.";
+    const fetchOrders = async (query = '') => {
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('access_token');
+            const url = query
+                ? `/api/v1/courier/my-orders?search=${encodeURIComponent(query)}`
+                : '/api/v1/courier/my-orders';
+
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            setOrders(data);
+        } catch (error) {
+            console.error("Ошибка загрузки заказов:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const token = localStorage.getItem('access_token');
-                const response = await fetch('/api/v1/courier/my-orders', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await response.json();
-                setOrders(data);
-            } catch (error) {
-                console.error("Ошибка загрузки заказов:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchOrders();
     }, []);
+
 
     return (
         <div className="flex h-screen bg-background-light overflow-hidden text-text-main">
@@ -38,7 +45,16 @@ const CourierOrdersHistory = () => {
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3">
                             <span className="material-symbols-outlined text-slate-400 text-xl">search</span>
                         </span>
-                        <input className="search-input" placeholder="Поиск заказа..." type="text" />
+                        <input
+                            className="search-input"
+                            placeholder="Поиск заказа..."
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                fetchOrders(e.target.value);
+                            }}
+                        />
                     </div>
                 </header>
 
@@ -70,7 +86,6 @@ const CourierOrdersHistory = () => {
                                             </td>
                                             <td className="table-cell">
                                                 <div className="flex items-center gap-2">
-                                                    {/* Цвет можно выбирать динамически или оставить один */}
                                                     <span className="w-2 h-2 rounded-full bg-blue-400"></span>
                                                     <span className="font-medium">{order.waste_type}</span>
                                                 </div>

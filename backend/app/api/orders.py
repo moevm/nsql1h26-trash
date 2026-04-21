@@ -5,6 +5,7 @@ from app.db.orders import create_order, get_my_orders
 from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
+from app.db.events import log_event
 from typing import Optional
 import os
 import uuid
@@ -49,6 +50,14 @@ async def create_new_order(
             "created_at": created_at_str
         })
 
+        log_event(
+            event_type="order_created",
+            title=f"Новая заявка на вывоз",
+            description=f"Клиент: {current_user.full_name} • {order_in.waste_type}",
+            related_id=new_order.id,
+            related_type="order",
+        )
+
         return new_order
 
     except Exception as e:
@@ -64,8 +73,9 @@ async def create_new_order(
 
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
-    current_user: UserResponse = Depends(get_current_active_client),
-    status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+        current_user: UserResponse = Depends(get_current_active_client),
+        status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+
 ):
     """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
     try:
@@ -155,6 +165,14 @@ async def update_order_status(
             executes_col.insert(edge_data)
             print("DEBUG: РЕБРО УСПЕШНО СОЗДАНО!")
 
+            log_event(
+                event_type="order_accepted",
+                title=f"Заказ ORD-{order_id} принят курьером",
+                description=f"Курьер: {current_courier.full_name}",
+                related_id=order_id,
+                related_type="order",
+            )
+
         except Exception as e:
             print(f"!!! DEBUG: ОШИБКА при вставке ребра: {e}")
             raise HTTPException(status_code=500, detail=f"Ошибка графа: {str(e)}")
@@ -177,6 +195,14 @@ async def update_order_status(
         })
 
     orders_col.update({"_key": order_id, "status": status_update.status})
+    if status_update.status == "done":
+        log_event(
+            event_type="order_completed",
+            title=f"Заказ ORD-{order_id} выполнен",
+            description=f"Курьер: {current_courier.full_name}",
+            related_id=order_id,
+            related_type="order",
+        )
     return {"message": "Статус обновлен"}
 
 UPLOAD_DIR = "uploads/completion_photos"
@@ -212,8 +238,8 @@ async def upload_completion_photo(
 
 @router.get("/my/{order_id}", response_model=Order)
 async def get_my_order_detail(
-    order_id: str,
-    current_user: UserResponse = Depends(get_current_active_client)
+        order_id: str,
+        current_user: UserResponse = Depends(get_current_active_client)
 ):
     """
     2.5 Просмотр деталей заказа клиентом
@@ -264,4 +290,3 @@ async def get_my_order_detail(
             status_code=500,
             detail=f"Не удалось загрузить детали заказа: {str(e)}"
         )
-
