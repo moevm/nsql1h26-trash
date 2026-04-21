@@ -86,6 +86,20 @@ async def get_my_orders_endpoint(
             detail=f"Не удалось загрузить историю заказов: {str(e)}"
         )
 
+
+@router.get("/history", response_model=list[Order])
+async def get_customer_orders_history(
+    current_user: UserResponse = Depends(get_current_active_client),
+):
+    """Полная история заказов текущего заказчика"""
+    try:
+        return get_my_orders(client_key=current_user.id, status_filter=None)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Не удалось загрузить полную историю заказов: {str(e)}"
+        )
+
 @router.get("/{order_id}", response_model=Order)
 async def get_order_details(order_id: str, current_user=Depends(get_current_active_courier)):
     db = arango_instance.db
