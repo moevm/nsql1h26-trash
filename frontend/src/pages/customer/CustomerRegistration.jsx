@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../AuthContext';
-
 const Header = () => {
     const navigate = useNavigate();
 
@@ -32,68 +31,63 @@ const CustomerRegistration = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
     const [formData, setFormData] = useState({
-        fullName: '',
-        phone: '',
+        full_name: '',
         email: '',
-        address: '',
+        phone: '',
         password: '',
-        confirmPassword: '',
-        acceptedTerms: false,
+        confirm_password: '',
+        address: ''
     });
 
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value,
-        }));
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = async (e) => {
+    const handleRegister = async (e) => {
         e.preventDefault();
 
-        if (formData.password !== formData.confirmPassword) {
-            alert('Пароли не совпадают!');
-            return;
-        }
-
-        if (!formData.acceptedTerms) {
-            alert('Необходимо принять условия использования и политику конфиденциальности');
+        if (formData.password !== formData.confirm_password) {
+            alert("Пароли не совпадают!");
             return;
         }
 
         try {
-            const response = await fetch('/api/v1/auth/register/customer', {
+            const regResponse = await fetch('/api/v1/auth/register/customer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    full_name: formData.fullName,
-                    email: formData.email,
-                    phone: formData.phone,
-                    password: formData.password,
-                    confirm_password: formData.confirmPassword,
-                    address: formData.address,
-                }),
+                body: JSON.stringify(formData)
             });
 
-            const result = await response.json();
-
-            if (response.ok) {
-                login({
-                    id: result.id,
-                    name: result.full_name,
-                    email: result.email,
-                    phone: result.phone,
-                    role: result.role,
+            if (regResponse.ok) {
+                const loginResponse = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        login: formData.email,
+                        password: formData.password
+                    })
                 });
 
-                navigate('/customer-dashboard');
+                if (loginResponse.ok) {
+                    const authData = await loginResponse.json();
+
+                    login(authData);
+
+                    localStorage.setItem('access_token', authData.access_token);
+
+                    navigate('/customer-dashboard');
+                } else {
+                    const loginErr = await loginResponse.json();
+                    alert("Регистрация успешна, но вход не удался: " + (loginErr.detail || ""));
+                    navigate('/login');
+                }
             } else {
-                alert('Ошибка: ' + (result.detail ? JSON.stringify(result.detail) : 'Не удалось зарегистрироваться'));
+                const errorData = await regResponse.json();
+                alert(errorData.detail || "Ошибка при регистрации");
             }
-        } catch (error) {
-            console.error('Ошибка сети:', error);
-            alert('Ошибка соединения с сервером');
+        } catch (err) {
+            console.error("Ошибка:", err);
         }
     };
 
@@ -114,7 +108,7 @@ const CustomerRegistration = () => {
                             <p className="selection-subtitle">Создайте аккаунт для управления вывозом мусора</p>
                         </div>
 
-                        <form className="space-y-6" onSubmit={handleSubmit}>
+                        <form onSubmit={handleRegister} className="space-y-6">
                             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                                 {/* ФИО */}
                                 <div className="col-span-1 sm:col-span-2">
@@ -122,12 +116,11 @@ const CustomerRegistration = () => {
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">person</span>
                                         <input
+                                            name="full_name"
+                                            onChange={handleChange}
                                             className="reg-input-field"
                                             placeholder="Иванов Иван Иванович"
                                             type="text"
-                                            name="fullName"
-                                            value={formData.fullName}
-                                            onChange={handleChange}
                                             required
                                         />
                                     </div>
@@ -139,12 +132,11 @@ const CustomerRegistration = () => {
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">call</span>
                                         <input
+                                            name="phone"
+                                            onChange={handleChange}
                                             className="reg-input-field"
                                             placeholder="+7 (000) 000-00-00"
                                             type="tel"
-                                            name="phone"
-                                            value={formData.phone}
-                                            onChange={handleChange}
                                             required
                                         />
                                     </div>
@@ -156,12 +148,11 @@ const CustomerRegistration = () => {
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">mail</span>
                                         <input
+                                            name="email"
+                                            onChange={handleChange}
                                             className="reg-input-field"
                                             placeholder="example@mail.ru"
                                             type="email"
-                                            name="email"
-                                            value={formData.email}
-                                            onChange={handleChange}
                                             required
                                         />
                                     </div>
@@ -173,12 +164,11 @@ const CustomerRegistration = () => {
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">location_on</span>
                                         <input
+                                            name="address"
+                                            onChange={handleChange}
                                             className="reg-input-field"
                                             placeholder="г. Санкт-Петербург, ул. Мира, д. 10"
                                             type="text"
-                                            name="address"
-                                            value={formData.address}
-                                            onChange={handleChange}
                                             required
                                         />
                                     </div>
@@ -190,12 +180,11 @@ const CustomerRegistration = () => {
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">lock</span>
                                         <input
+                                            name="password"
+                                            onChange={handleChange}
                                             className="reg-input-field"
                                             placeholder="••••••••"
                                             type={showPass ? "text" : "password"}
-                                            name="password"
-                                            value={formData.password}
-                                            onChange={handleChange}
                                             required
                                         />
                                         <span
@@ -213,12 +202,11 @@ const CustomerRegistration = () => {
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">lock_reset</span>
                                         <input
+                                            name="confirm_password"
+                                            onChange={handleChange}
                                             className="reg-input-field"
                                             placeholder="••••••••"
                                             type={showPass ? "text" : "password"}
-                                            name="confirmPassword"
-                                            value={formData.confirmPassword}
-                                            onChange={handleChange}
                                             required
                                         />
                                     </div>
@@ -227,14 +215,7 @@ const CustomerRegistration = () => {
 
                             {/* Согласие */}
                             <div className="flex items-start gap-3 pt-2">
-                                <input
-                                    type="checkbox"
-                                    id="terms"
-                                    name="acceptedTerms"
-                                    checked={formData.acceptedTerms}
-                                    onChange={handleChange}
-                                    className="h-5 w-5 rounded border-slate-200 text-primary focus:ring-primary cursor-pointer mt-0.5"
-                                />
+                                <input type="checkbox" id="terms" className="h-5 w-5 rounded border-slate-200 text-primary focus:ring-primary cursor-pointer mt-0.5" />
                                 <label htmlFor="terms" className="text-sm text-text-main font-medium leading-relaxed cursor-pointer">
                                     Я согласен с <span className="reg-link">Условиями использования</span> и <span className="reg-link">Политикой конфиденциальности</span>
                                 </label>
@@ -242,7 +223,7 @@ const CustomerRegistration = () => {
 
                             {/* Кнопка */}
                             <div className="pt-6 border-t border-slate-50">
-                                <button type="submit" className="reg-submit-btn">
+                                <button className="reg-submit-btn">
                                     Зарегистрироваться
                                 </button>
 
