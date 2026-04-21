@@ -21,7 +21,9 @@ print(20)
 from app.services.auth_service import ensure_default_admin
 from app.api.courier import router as courier_router
 from app.api.orders import router as orders_router
+from app.api.admin import router as admin_router
 from app.api.deps import get_current_active_client
+from app.db.events import ensure_events_collection
 import logging
 import time
 from fastapi.openapi.utils import get_openapi
@@ -54,6 +56,7 @@ async def lifespan(app: FastAPI):
     ensure_users_collection()
     get_available_orders()
     ensure_default_admin()
+    ensure_events_collection()
     logger.info("Коллекции БД инициализированы.")
 
     yield
@@ -109,3 +112,4 @@ app.include_router(auth_router, prefix="/api/v1/auth")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(courier_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
