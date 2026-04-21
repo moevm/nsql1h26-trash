@@ -28,6 +28,8 @@ def create_access_token(user: dict) -> str:
     payload = {
         "sub": user["id"],
         "email": user["email"],
+        "full_name": user.get("full_name", ""),
+        "phone": user.get("phone", ""),
         "role": user["role"],
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),

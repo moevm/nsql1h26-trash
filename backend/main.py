@@ -18,7 +18,7 @@ from app.api.auth import router as auth_router
 print(18)
 from app.api.health import router as health_router
 print(20)
-from app.services.auth_service import ensure_default_admin
+from app.services.auth_service import ensure_default_debug_users
 from app.api.courier import router as courier_router
 from app.api.orders import router as orders_router
 from app.api.admin import router as admin_router
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
 
     ensure_users_collection()
     get_available_orders()
-    ensure_default_admin()
+    ensure_default_debug_users()
     ensure_events_collection()
     logger.info("Коллекции БД инициализированы.")
 
