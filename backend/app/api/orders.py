@@ -5,6 +5,7 @@ from app.db.orders import create_order, get_my_orders
 from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
+from app.db.events import log_event
 from typing import Optional
 import os
 import uuid
@@ -48,6 +49,14 @@ async def create_new_order(
             "_to": f"orders/{new_order.id}",
             "created_at": created_at_str
         })
+
+        log_event(
+            event_type="order_created",
+            title=f"Новая заявка на вывоз",
+            description=f"Клиент: {current_user.full_name} • {order_in.waste_type}",
+            related_id=new_order.id,
+            related_type="order",
+        )
 
         return new_order
 
@@ -155,6 +164,14 @@ async def update_order_status(
             executes_col.insert(edge_data)
             print("DEBUG: РЕБРО УСПЕШНО СОЗДАНО!")
 
+            log_event(
+                event_type="order_accepted",
+                title=f"Заказ ORD-{order_id} принят курьером",
+                description=f"Курьер: {current_courier.full_name}",
+                related_id=order_id,
+                related_type="order",
+            )
+
         except Exception as e:
             print(f"!!! DEBUG: ОШИБКА при вставке ребра: {e}")
             raise HTTPException(status_code=500, detail=f"Ошибка графа: {str(e)}")
@@ -177,6 +194,16 @@ async def update_order_status(
         })
 
     orders_col.update({"_key": order_id, "status": status_update.status})
+
+    if status_update.status == "done":
+        log_event(
+            event_type="order_completed",
+            title=f"Заказ ORD-{order_id} выполнен",
+            description=f"Курьер: {current_courier.full_name}",
+            related_id=order_id,
+            related_type="order",
+        )
+
     return {"message": "Статус обновлен"}
 
 UPLOAD_DIR = "uploads/completion_photos"

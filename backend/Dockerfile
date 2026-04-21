@@ -5,8 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 # RUN uv pip install --system --no-cache -r requirements.txt
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache \
+RUN uv pip install --system --no-cache \
     -i https://mirrors.aliyun.com/pypi/simple/ \
     --trusted-host mirrors.aliyun.com \
     -r requirements.txt
