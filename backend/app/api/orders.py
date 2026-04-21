@@ -303,4 +303,3 @@ async def get_my_order_detail(
             status_code=500,
             detail=f"Не удалось загрузить детали заказа: {str(e)}"
         )
-
