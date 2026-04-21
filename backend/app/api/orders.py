@@ -73,8 +73,9 @@ async def create_new_order(
 
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
-    current_user: UserResponse = Depends(get_current_active_client),
-    status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+        current_user: UserResponse = Depends(get_current_active_client),
+        status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+
 ):
     """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
     try:
@@ -194,7 +195,6 @@ async def update_order_status(
         })
 
     orders_col.update({"_key": order_id, "status": status_update.status})
-
     if status_update.status == "done":
         log_event(
             event_type="order_completed",
@@ -203,7 +203,6 @@ async def update_order_status(
             related_id=order_id,
             related_type="order",
         )
-
     return {"message": "Статус обновлен"}
 
 UPLOAD_DIR = "uploads/completion_photos"
@@ -239,8 +238,8 @@ async def upload_completion_photo(
 
 @router.get("/my/{order_id}", response_model=Order)
 async def get_my_order_detail(
-    order_id: str,
-    current_user: UserResponse = Depends(get_current_active_client)
+        order_id: str,
+        current_user: UserResponse = Depends(get_current_active_client)
 ):
     """
     2.5 Просмотр деталей заказа клиентом
@@ -291,4 +290,3 @@ async def get_my_order_detail(
             status_code=500,
             detail=f"Не удалось загрузить детали заказа: {str(e)}"
         )
-
