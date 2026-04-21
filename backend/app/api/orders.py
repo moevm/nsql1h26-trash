@@ -134,8 +134,10 @@ async def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Заказ не найден")
 
-    courier_key = getattr(current_courier, 'key', getattr(current_courier, 'id', None))
-    print(f"DEBUG: Курьер: users/{courier_key}")
+    print(f"DEBUG: Тип объекта current_courier: {type(current_courier)}")
+    print(f"DEBUG: Все атрибуты объекта: {current_courier.__dict__}")
+    courier_key = current_courier.id
+    print(f"DEBUG: ИСПОЛЬЗУЕМЫЙ ID: {courier_key}")
 
     if status_update.status == "active":
         try:

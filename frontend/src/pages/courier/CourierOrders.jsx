@@ -1,22 +1,35 @@
-import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
+import React, { useState, useEffect } from 'react';
 
 const CourierOrdersHistory = () => {
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
     const location = useLocation();
     const navigate = useNavigate();
     const userName = location.state?.userName || "Алексей К.";
 
-    const orders = [
-        { id: '#4829', date: '12.10.2023', time: '14:30', type: 'Бытовой мусор', typeColor: 'bg-blue-400', address: 'ул. Ленина, 45, п. 3, эт. 4', reward: '350 ₽', status: 'Выполнен' },
-        { id: '#4825', date: '12.10.2023', time: '10:15', type: 'Пластик', typeColor: 'bg-yellow-400', address: 'пр. Мира, 12, кв. 89', reward: '200 ₽', status: 'Выполнен' },
-        { id: '#4818', date: '11.10.2023', time: '18:45', type: 'Стекло', typeColor: 'bg-red-400', address: 'ул. Гагарина, 5, п. 1', reward: '450 ₽', status: 'Выполнен' },
-        { id: '#4812', date: '11.10.2023', time: '16:20', type: 'Бытовой мусор', typeColor: 'bg-blue-400', address: 'бул. Победы, 33, кв. 12', reward: '300 ₽', status: 'Выполнен' },
-    ];
+    useEffect(() => {
+        const fetchOrders = async () => {
+            try {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/api/v1/courier/my-orders', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                setOrders(data);
+            } catch (error) {
+                console.error("Ошибка загрузки заказов:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchOrders();
+    }, []);
 
     return (
         <div className="flex h-screen bg-background-light overflow-hidden text-text-main">
-            <Sidebar activePage="my-orders" userName={userName} />
+            <Sidebar activePage="my-orders" />
 
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 <header className="h-20 flex items-center justify-between px-8 border-b border-slate-200 bg-white shrink-0 z-10">
@@ -49,24 +62,25 @@ const CourierOrdersHistory = () => {
                                         <tr
                                             key={order.id}
                                             className="table-row cursor-pointer hover:bg-slate-50 transition-colors"
-                                            onClick={() => navigate(`/order-history/${order.id.replace('#', '')}`, { state: { order, userName } })}
+                                            onClick={() => navigate(`/order-details/${order.id}`, { state: { order, userName } })}
                                         >
-                                            <td className="table-cell font-medium group-hover:text-primary transition-colors">
-                                                {order.id}
-                                            </td>
+                                            <td className="table-cell font-medium">#{order.id}</td>
                                             <td className="table-cell text-slate-600">
-                                                {order.date} <span className="text-slate-400 ml-1">{order.time}</span>
+                                                {new Date(order.created_at).toLocaleDateString()}
                                             </td>
                                             <td className="table-cell">
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`w-2 h-2 rounded-full ${order.typeColor}`}></span>
-                                                    <span className="font-medium">{order.type}</span>
+                                                    {/* Цвет можно выбирать динамически или оставить один */}
+                                                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                                                    <span className="font-medium">{order.waste_type}</span>
                                                 </div>
                                             </td>
                                             <td className="table-cell text-slate-600 truncate max-w-xs">{order.address}</td>
-                                            <td className="table-cell text-right font-bold">{order.reward}</td>
+                                            <td className="table-cell text-right font-bold">{order.price} ₽</td>
                                             <td className="table-cell text-center">
-                                                <span className="status-badge-success">{order.status}</span>
+                <span className={order.status === 'done' ? "status-badge-success" : "status-badge-warning"}>
+                    {order.status === 'done' ? 'Выполнен' : 'В работе'}
+                </span>
                                             </td>
                                         </tr>
                                     ))}

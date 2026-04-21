@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext.jsx'
 
 const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [formData, setFormData] = useState({
         login: '',
         password: ''
@@ -16,7 +18,7 @@ const LoginPage = () => {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('/api/v1/auth/login', {
+            const response = await fetch('http://localhost:8000/api/v1/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ login: formData.login, password: formData.password }),
@@ -26,12 +28,25 @@ const LoginPage = () => {
 
             if (response.ok) {
                 localStorage.setItem('access_token', result.access_token);
-                navigate('/courier-dash');
+
+                login({
+                    id: result.id,
+                    name: result.full_name,
+                    email: result.email,
+                    phone: result.phone,
+                    role: result.role,
+                    transport: result.transport,
+
+                });
+
+                if (result.role === 'customer') navigate('/customer-dashboard');
+                else if (result.role === 'courier') navigate('/courier-dash');
+                else if (result.role === 'admin') navigate('/admin-dashboard');
             } else {
-                alert(result.detail ? "Ошибка входа" : "Неверные данные");
+                alert(result.detail || "Неверные данные");
             }
         } catch (error) {
-            alert("Ошибка сети");
+            console.error("Ошибка:", error);
         }
     };
     const openModal = (e) => {
@@ -87,8 +102,6 @@ const LoginPage = () => {
                         </div>
 
 
-
-                        {/* Right side — Registration Button */}
 
                         <div className="flex items-center gap-4">
 

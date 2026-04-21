@@ -53,7 +53,6 @@ const CourierRegistration = () => {
         }
     };
 
-    // ОСТАВЛЯЕМ ТОЛЬКО ЭТУ ВЕРСИЮ:
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -70,37 +69,48 @@ const CourierRegistration = () => {
         data.append('transport', formData.transport);
         data.append('password', formData.password);
         data.append('confirm_password', formData.confirmPassword);
-
-        if (selectedFile) {
-            data.append('passport_photo', selectedFile);
-        }
+        if (selectedFile) data.append('passport_photo', selectedFile);
 
         try {
-            const response = await fetch('/api/v1/auth/register/courier', {
+            const regResponse = await fetch('/api/v1/auth/register/courier', {
                 method: 'POST',
                 body: data,
             });
+            if (!regResponse.ok) {
+                const err = await regResponse.json();
+                throw new Error(err.detail || "Ошибка регистрации");
+            }
 
-            const result = await response.json();
+            const loginResponse = await fetch('/api/v1/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    login: formData.email,
+                    password: formData.password
+                }),
+            });
 
-            if (response.ok) {
+            const loginResult = await loginResponse.json();
+
+            if (loginResponse.ok) {
                 login({
-                    id: result.id,
-                    name: result.full_name,
-                    email: result.email,
-                    phone: result.phone,
-                    role: result.role,
+                    id: loginResult.id,
+                    name: loginResult.full_name,
+                    email: formData.email,
+                    phone: formData.phone,
+                    role: loginResult.role,
                     transport: formData.transport
-                });
+                }, loginResult.access_token);
 
                 navigate('/courier-dash');
             } else {
-                console.error("Ошибка:", result);
-                alert("Ошибка: " + (result.detail ? JSON.stringify(result.detail) : "Не удалось зарегистрироваться"));
+                alert("Регистрация успешна, но вход не удался: " + (loginResult.detail || "Ошибка"));
+                navigate('/login');
             }
+
         } catch (error) {
-            console.error("Ошибка сети:", error);
-            alert("Ошибка соединения с сервером");
+            console.error("Ошибка:", error);
+            alert("Ошибка: " + error.message);
         }
     };
     return (
