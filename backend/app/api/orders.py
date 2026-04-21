@@ -64,8 +64,8 @@ async def create_new_order(
 
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
-        current_user: UserResponse = Depends(get_current_active_client),
-        status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+    current_user: UserResponse = Depends(get_current_active_client),
+    status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
 ):
     """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
     try:
@@ -76,7 +76,6 @@ async def get_my_orders_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Не удалось загрузить историю заказов: {str(e)}"
         )
-
 
 @router.get("/{order_id}", response_model=Order)
 async def get_order_details(order_id: str, current_user=Depends(get_current_active_courier)):
@@ -210,10 +209,11 @@ async def upload_completion_photo(
 
     return {"message": "Фото успешно загружено", "photo_path": file_path}
 
+
 @router.get("/my/{order_id}", response_model=Order)
 async def get_my_order_detail(
-        order_id: str,
-        current_user: UserResponse = Depends(get_current_active_client)
+    order_id: str,
+    current_user: UserResponse = Depends(get_current_active_client)
 ):
     """
     2.5 Просмотр деталей заказа клиентом

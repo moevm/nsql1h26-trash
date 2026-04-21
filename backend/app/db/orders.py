@@ -25,7 +25,7 @@ def _ensure_collections():
 
     if not db.has_collection("Owns"):
         db.create_collection("Owns", edge=True)
-        print("✅ Создана Edge-коллекция: Owns")
+        print("✅ Создана Edge-коллекция: Owns")    
 
 
 def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
@@ -64,6 +64,7 @@ def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
         print(f"[Error] Не удалось создать связь Owns: {e}")
 
     return Order(**order_data)
+
 
 
 def get_available_orders(type_filter: str = None):
@@ -114,6 +115,8 @@ def get_available_orders(type_filter: str = None):
 
     return raw_orders
 
+
+
 def get_my_orders(client_key: str, status_filter: str = None):
     """
     Получить все заказы конкретного клиента
@@ -153,3 +156,7 @@ def get_my_orders(client_key: str, status_filter: str = None):
         })
 
     return raw_orders
+
+
+
+    
