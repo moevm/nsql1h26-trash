@@ -123,11 +123,9 @@ async def get_order_details(order_id: str, current_user=Depends(get_current_acti
         FOR tx, edge IN 1..1 OUTBOUND @order_id History
             RETURN tx
         """
-        # Основной вариант: в History храним _from как Orders/<id>
         cursor = db.aql.execute(query, bind_vars={"order_id": f"Orders/{order_id}"})
         tx = cursor.next() if not cursor.empty() else None
 
-        # Фоллбек для старых/несогласованных данных
         if tx is None:
             cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
             tx = cursor.next() if not cursor.empty() else None
@@ -272,7 +270,7 @@ async def get_my_order_detail(
 
         order_doc["id"] = order_doc.get("_key")
 
-        # === Получаем информацию о курьере, если он назначен ===
+        # Получаем информацию о курьере, если он назначен
         query_courier = """
         FOR courier, edge IN 1..1 INBOUND @order_id Executes
             RETURN {
