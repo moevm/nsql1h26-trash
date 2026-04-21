@@ -1,5 +1,52 @@
-# nosql_template
+# ЭкоСервис (nsql1h26-trash)
 
+Прототип сервиса вывоза отходов с ролями:
+- заказчик (`customer`)
+- курьер (`courier`)
+- администратор (`admin`)
+
+## Быстрый запуск
+
+```bash
+docker compose build --no-cache
+docker compose up
+```
+
+Доступ после запуска:
+- фронтенд: http://127.0.0.1:8080
+- backend API: http://127.0.0.1:8001
+- ArangoDB: http://127.0.0.1:8529
+
+## Тестовые пользователи (создаются автоматически при старте backend)
+
+Пользователи создаются в `lifespan` приложения функцией `ensure_default_debug_users()`.
+
+### 1) Администратор
+- email: `admin@trash.local`
+- phone: `+70000000000`
+- password: `Admin123`
+- role: `admin`
+
+### 2) Курьер
+- email: `courier@trash.local`
+- phone: `+70000000001`
+- password: `Courier123`
+- role: `courier`
+
+### 3) Заказчик
+- email: `customer@trash.local`
+- phone: `+70000000002`
+- password: `Customer123`
+- role: `customer`
+
+Можно логиниться как по `email`, так и по `phone`.
+
+## Настройка через переменные окружения
+
+Дефолтные тестовые пользователи настраиваются через переменные (см. `backend/app/core/config.py`):
+- `TRASH_DEBUG_ADMIN_*`
+- `TRASH_DEBUG_COURIER_*`
+- `TRASH_DEBUG_CUSTOMER_*`
 
 ## Предварительная проверка заданий
 

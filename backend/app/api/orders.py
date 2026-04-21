@@ -117,12 +117,20 @@ async def get_order_details(order_id: str, current_user=Depends(get_current_acti
     else:
         order_doc["client_name"] = "Неизвестный заказчик"
 
-    query = """
-    FOR tx, edge IN 1..1 OUTBOUND @order_id History
-        RETURN tx
-    """
-    cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
-    tx = cursor.next() if not cursor.empty() else None
+    tx = None
+    if db.has_collection("History"):
+        query = """
+        FOR tx, edge IN 1..1 OUTBOUND @order_id History
+            RETURN tx
+        """
+        # Основной вариант: в History храним _from как Orders/<id>
+        cursor = db.aql.execute(query, bind_vars={"order_id": f"Orders/{order_id}"})
+        tx = cursor.next() if not cursor.empty() else None
+
+        # Фоллбек для старых/несогласованных данных
+        if tx is None:
+            cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
+            tx = cursor.next() if not cursor.empty() else None
     order_doc["transaction"] = tx
 
     print(f"DEBUG: [API] Объект перед отправкой: {order_doc}")
@@ -181,6 +189,10 @@ async def update_order_status(
         if not order.get("completion_photo"):
             raise HTTPException(status_code=400, detail="Сначала загрузите фото!")
         db = arango_instance.db
+        if not db.has_collection("Transactions"):
+            db.create_collection("Transactions")
+        if not db.has_collection("History"):
+            db.create_collection("History", edge=True)
         tx_doc = {
             "amount": order.get("price", 0.0),
             "type": "order_payout",
