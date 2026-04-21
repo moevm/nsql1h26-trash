@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    const login = (userData) => {
+    const login = (userData, token) => {
         console.log("Что пришло при логине:", userData);
         const normalizedUser = {
             ...userData,
@@ -24,6 +24,9 @@ export const AuthProvider = ({ children }) => {
         };
         setUser(normalizedUser);
         localStorage.setItem('user', JSON.stringify(normalizedUser));
+        if (token) {
+            localStorage.setItem('access_token', token);
+        }
     };
 
     const logout = () => {

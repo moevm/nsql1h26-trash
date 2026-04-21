@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext.jsx'
 
 const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [formData, setFormData] = useState({
         login: '',
         password: ''
@@ -23,26 +25,28 @@ const LoginPage = () => {
             });
 
             const result = await response.json();
-            console.log("DEBUG: Ответ сервера:", result);
 
             if (response.ok) {
                 localStorage.setItem('access_token', result.access_token);
 
-                if (result.role === 'customer') {
-                    console.log("Редирект на дашборд заказчика");
-                    navigate('/customer-dashboard');
-                } else if (result.role === 'courier') {
-                    console.log("Редирект на дашборд курьера");
-                    navigate('/courier-dash');
-                } else {
-                    alert("Неизвестная роль пользователя");
-                }
+                login({
+                    id: result.id,
+                    name: result.full_name,
+                    email: result.email,
+                    phone: result.phone,
+                    role: result.role,
+                    transport: result.transport,
+
+                });
+
+                if (result.role === 'customer') navigate('/customer-dashboard');
+                else if (result.role === 'courier') navigate('/courier-dash');
+                else if (result.role === 'admin') navigate('/admin-dashboard');
             } else {
                 alert(result.detail || "Неверные данные");
             }
         } catch (error) {
-            console.error("Ошибка сети:", error);
-            alert("Ошибка сети или сервера.");
+            console.error("Ошибка:", error);
         }
     };
     const openModal = (e) => {
