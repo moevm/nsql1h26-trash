@@ -20,6 +20,7 @@ const CourierDashboard = () => {
         const url = `/api/v1/courier/available-orders${typeParam}`;
 
         try {
+            console.log("DEBUG: Отправляю запрос с токеном:", localStorage.getItem('access_token'));
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
@@ -27,14 +28,13 @@ const CourierDashboard = () => {
             });
             if (!response.ok) throw new Error('Ошибка сети');
             const data = await response.json();
-            setOrders(data); // data — это уже массив
+            setOrders(data);
         } catch (error) {
             console.error("Не удалось загрузить заказы:", error);
             setOrders([]);
         }
     };
 
-    // 4. Загрузка при изменении вкладки
     useEffect(() => {
         fetchOrders(activeTab);
     }, [activeTab]);

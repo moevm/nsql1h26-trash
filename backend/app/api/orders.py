@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from app.models.order import OrderCreate, Order, StatusUpdate
-from app.db.orders import create_order
+from app.db.orders import create_order, get_my_orders
 from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
+from typing import Optional
 import os
 import uuid
 
@@ -62,9 +63,20 @@ async def create_new_order(
 
 
 @router.get("/my", response_model=list[Order])
-async def get_my_orders(current_user: UserResponse = Depends(get_current_active_client)):
-    """Мои заказы (пока заглушка)"""
-    return []
+async def get_my_orders_endpoint(
+        current_user: UserResponse = Depends(get_current_active_client),
+        status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+):
+    """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
+    try:
+        orders = get_my_orders(client_key=current_user.id, status_filter=status)
+        return orders
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Не удалось загрузить историю заказов: {str(e)}"
+        )
+
 
 @router.get("/{order_id}", response_model=Order)
 async def get_order_details(order_id: str, current_user=Depends(get_current_active_courier)):
@@ -123,8 +135,10 @@ async def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Заказ не найден")
 
-    courier_key = getattr(current_courier, 'key', getattr(current_courier, 'id', None))
-    print(f"DEBUG: Курьер: users/{courier_key}")
+    print(f"DEBUG: Тип объекта current_courier: {type(current_courier)}")
+    print(f"DEBUG: Все атрибуты объекта: {current_courier.__dict__}")
+    courier_key = current_courier.id
+    print(f"DEBUG: ИСПОЛЬЗУЕМЫЙ ID: {courier_key}")
 
     if status_update.status == "active":
         try:
@@ -195,4 +209,59 @@ async def upload_completion_photo(
     })
 
     return {"message": "Фото успешно загружено", "photo_path": file_path}
+
+@router.get("/my/{order_id}", response_model=Order)
+async def get_my_order_detail(
+        order_id: str,
+        current_user: UserResponse = Depends(get_current_active_client)
+):
+    """
+    2.5 Просмотр деталей заказа клиентом
+    """
+    try:
+        db = arango_instance.db
+
+        order_doc = db.collection("Orders").get(order_id)
+
+        if not order_doc:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+
+        if order_doc.get("client_key") != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="У вас нет доступа к этому заказу"
+            )
+
+        order_doc["id"] = order_doc.get("_key")
+
+        # === Получаем информацию о курьере, если он назначен ===
+        query_courier = """
+        FOR courier, edge IN 1..1 INBOUND @order_id Executes
+            RETURN {
+                id: courier._key,
+                full_name: courier.full_name,
+                phone: courier.phone,
+                rating: courier.rating,
+                transport: courier.transport
+            }
+        """
+
+        cursor = db.aql.execute(query_courier, bind_vars={"order_id": f"orders/{order_id}"})
+        courier_info = cursor.next() if not cursor.empty() else None
+
+        if courier_info:
+            order_doc["courier"] = courier_info
+
+        for key in ["_id", "_rev", "_key"]:
+            order_doc.pop(key, None)
+
+        return order_doc
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Не удалось загрузить детали заказа: {str(e)}"
+        )
 

@@ -57,3 +57,23 @@ async def update_my_profile(
     users_col.update({"_key": current_courier.id, **update_data})
 
     return {"message": "Профиль успешно обновлен"}
+
+@router.get("/my-orders")
+async def get_courier_orders(current_user: UserResponse = Depends(get_current_active_courier)):
+    db = arango_instance.db
+
+    # Используем current_user.id для доступа к ID пользователя
+    query = """
+    FOR edge IN Executes
+        FILTER edge._from == @courier_id
+        LET order = DOCUMENT(edge._to)
+        SORT order.created_at DESC
+        RETURN MERGE(order, { 
+            "id": order._key 
+        })
+    """
+
+    bind_vars = {"courier_id": f"users/{current_user.id}"}
+
+    cursor = db.aql.execute(query, bind_vars=bind_vars)
+    return list(cursor)

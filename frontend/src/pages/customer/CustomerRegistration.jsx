@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import { useAuth } from '../../AuthContext';
 const Header = () => {
     const navigate = useNavigate();
 
@@ -29,6 +29,67 @@ const Header = () => {
 const CustomerRegistration = () => {
     const [showPass, setShowPass] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
+    const [formData, setFormData] = useState({
+        full_name: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirm_password: '',
+        address: ''
+    });
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleRegister = async (e) => {
+        e.preventDefault();
+
+        if (formData.password !== formData.confirm_password) {
+            alert("Пароли не совпадают!");
+            return;
+        }
+
+        try {
+            const regResponse = await fetch('/api/v1/auth/register/customer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            if (regResponse.ok) {
+                const loginResponse = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        login: formData.email,
+                        password: formData.password
+                    })
+                });
+
+                if (loginResponse.ok) {
+                    const authData = await loginResponse.json();
+
+                    login(authData);
+
+                    localStorage.setItem('access_token', authData.access_token);
+
+                    navigate('/customer-dashboard');
+                } else {
+                    const loginErr = await loginResponse.json();
+                    alert("Регистрация успешна, но вход не удался: " + (loginErr.detail || ""));
+                    navigate('/login');
+                }
+            } else {
+                const errorData = await regResponse.json();
+                alert(errorData.detail || "Ошибка при регистрации");
+            }
+        } catch (err) {
+            console.error("Ошибка:", err);
+        }
+    };
 
     return (
         <div className="selection-page-wrapper">
@@ -47,14 +108,21 @@ const CustomerRegistration = () => {
                             <p className="selection-subtitle">Создайте аккаунт для управления вывозом мусора</p>
                         </div>
 
-                        <form className="space-y-6">
+                        <form onSubmit={handleRegister} className="space-y-6">
                             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                                 {/* ФИО */}
                                 <div className="col-span-1 sm:col-span-2">
                                     <label className="reg-label">ФИО</label>
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">person</span>
-                                        <input className="reg-input-field" placeholder="Иванов Иван Иванович" type="text" />
+                                        <input
+                                            name="full_name"
+                                            onChange={handleChange}
+                                            className="reg-input-field"
+                                            placeholder="Иванов Иван Иванович"
+                                            type="text"
+                                            required
+                                        />
                                     </div>
                                 </div>
 
@@ -63,7 +131,14 @@ const CustomerRegistration = () => {
                                     <label className="reg-label">Телефон</label>
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">call</span>
-                                        <input className="reg-input-field" placeholder="+7 (000) 000-00-00" type="tel" />
+                                        <input
+                                            name="phone"
+                                            onChange={handleChange}
+                                            className="reg-input-field"
+                                            placeholder="+7 (000) 000-00-00"
+                                            type="tel"
+                                            required
+                                        />
                                     </div>
                                 </div>
 
@@ -72,7 +147,14 @@ const CustomerRegistration = () => {
                                     <label className="reg-label">Электронная почта</label>
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">mail</span>
-                                        <input className="reg-input-field" placeholder="example@mail.ru" type="email" />
+                                        <input
+                                            name="email"
+                                            onChange={handleChange}
+                                            className="reg-input-field"
+                                            placeholder="example@mail.ru"
+                                            type="email"
+                                            required
+                                        />
                                     </div>
                                 </div>
 
@@ -81,7 +163,14 @@ const CustomerRegistration = () => {
                                     <label className="reg-label">Адрес проживания</label>
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">location_on</span>
-                                        <input className="reg-input-field" placeholder="г. Санкт-Петербург, ул. Мира, д. 10" type="text" />
+                                        <input
+                                            name="address"
+                                            onChange={handleChange}
+                                            className="reg-input-field"
+                                            placeholder="г. Санкт-Петербург, ул. Мира, д. 10"
+                                            type="text"
+                                            required
+                                        />
                                     </div>
                                 </div>
 
@@ -91,9 +180,12 @@ const CustomerRegistration = () => {
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">lock</span>
                                         <input
+                                            name="password"
+                                            onChange={handleChange}
                                             className="reg-input-field"
                                             placeholder="••••••••"
                                             type={showPass ? "text" : "password"}
+                                            required
                                         />
                                         <span
                                             className="absolute right-4 text-slate-400 material-symbols-outlined cursor-pointer hover:text-primary transition-colors"
@@ -110,9 +202,12 @@ const CustomerRegistration = () => {
                                     <div className="relative flex items-center">
                                         <span className="absolute left-4 text-primary material-symbols-outlined select-none">lock_reset</span>
                                         <input
+                                            name="confirm_password"
+                                            onChange={handleChange}
                                             className="reg-input-field"
                                             placeholder="••••••••"
                                             type={showPass ? "text" : "password"}
+                                            required
                                         />
                                     </div>
                                 </div>
@@ -128,9 +223,7 @@ const CustomerRegistration = () => {
 
                             {/* Кнопка */}
                             <div className="pt-6 border-t border-slate-50">
-                                <button type="submit"
-                                        onClick={() => navigate('/customer-dashboard')}
-                                        className="reg-submit-btn">
+                                <button className="reg-submit-btn">
                                     Зарегистрироваться
                                 </button>
 

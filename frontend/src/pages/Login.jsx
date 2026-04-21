@@ -16,22 +16,33 @@ const LoginPage = () => {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('/api/v1/auth/login', {
+            const response = await fetch('http://localhost:8000/api/v1/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ login: formData.login, password: formData.password }),
             });
 
             const result = await response.json();
+            console.log("DEBUG: Ответ сервера:", result);
 
             if (response.ok) {
                 localStorage.setItem('access_token', result.access_token);
-                navigate('/courier-dash');
+
+                if (result.role === 'customer') {
+                    console.log("Редирект на дашборд заказчика");
+                    navigate('/customer-dashboard');
+                } else if (result.role === 'courier') {
+                    console.log("Редирект на дашборд курьера");
+                    navigate('/courier-dash');
+                } else {
+                    alert("Неизвестная роль пользователя");
+                }
             } else {
-                alert(result.detail ? "Ошибка входа" : "Неверные данные");
+                alert(result.detail || "Неверные данные");
             }
         } catch (error) {
-            alert("Ошибка сети");
+            console.error("Ошибка сети:", error);
+            alert("Ошибка сети или сервера.");
         }
     };
     const openModal = (e) => {
@@ -87,8 +98,6 @@ const LoginPage = () => {
                         </div>
 
 
-
-                        {/* Right side — Registration Button */}
 
                         <div className="flex items-center gap-4">
 

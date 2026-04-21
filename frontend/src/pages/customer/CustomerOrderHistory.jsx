@@ -1,31 +1,33 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import { useNavigate } from 'react-router-dom';
 import SidebarCustomer from './SidebarCustomer.jsx';
 
 const OrderHistory = () => {
     const navigate = useNavigate();
-    const orders = [
-        {
-            id: '12345',
-            date: '10 Окт',
-            time: '14:30',
-            type: 'Строительный',
-            address: 'ул. Ленина 10, кв. 45',
-            courier: 'Алексей',
-            amount: '5 000 ₽',
-            statusColor: 'amber'
-        },
-        {
-            id: '12344',
-            date: '08 Окт',
-            time: '09:15',
-            type: 'Бытовой',
-            address: 'ул. Пушкина 5',
-            courier: 'Сергей',
-            amount: '1 500 ₽',
-            statusColor: 'green'
-        },
-    ];
+    const [orders, setOrders] = useState([]);
+    const [filter, setFilter] = useState('all');
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            try {
+                const response = await fetch('/api/v1/orders/my', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setOrders(data);
+                }
+            } catch (e) {
+                console.error("Ошибка загрузки:", e);
+            }
+        };
+        fetchOrders();
+    }, []);
+
+    const filteredOrders = filter === 'all'
+        ? orders
+        : orders.filter(o => o.status === filter);
+
 
     return (
         <div className="flex min-h-screen w-full flex-col md:flex-row bg-[#f6f8f6] font-display text-[#111811] antialiased">
@@ -49,13 +51,33 @@ const OrderHistory = () => {
                     {/* Filters + Controls */}
                     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-4 items-center justify-between">
                         <div className="flex flex-wrap items-center gap-3">
-                            {['calendar_month', 'recycling', 'filter_list'].map((icon, idx) => (
-                                <button key={idx} className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors border border-slate-200">
-                                    <span className="material-symbols-outlined text-[20px] text-slate-500">{icon}</span>
-                                    {idx === 0 ? 'За все время' : idx === 1 ? 'Тип мусора' : 'Статус'}
-                                    <span className="material-symbols-outlined text-[18px] text-slate-400">expand_more</span>
-                                </button>
-                            ))}
+                            {/* Кнопка "За все время" */}
+                            <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors border border-slate-200">
+                                <span className="material-symbols-outlined text-[20px] text-slate-500">calendar_month</span>
+                                За все время
+                                <span className="material-symbols-outlined text-[18px] text-slate-400">expand_more</span>
+                            </button>
+
+                            {/* Кнопка "Тип мусора" */}
+                            <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors border border-slate-200">
+                                <span className="material-symbols-outlined text-[20px] text-slate-500">recycling</span>
+                                Тип мусора
+                                <span className="material-symbols-outlined text-[18px] text-slate-400">expand_more</span>
+                            </button>
+
+                            <div className="relative flex items-center bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+                                <span className="material-symbols-outlined text-[20px] text-slate-500 ml-3">filter_list</span>
+                                <select
+                                    className="bg-transparent py-2 pl-2 pr-8 text-sm font-medium text-slate-700 focus:outline-none cursor-pointer appearance-none"
+                                    onChange={(e) => setFilter(e.target.value)}
+                                >
+                                    <option value="all">Все статусы</option>
+                                    <option value="searching">В поиске</option>
+                                    <option value="active">Активные</option>
+                                    <option value="done">Выполненные</option>
+                                </select>
+                                <span className="material-symbols-outlined text-[18px] text-slate-400 absolute right-2 pointer-events-none">expand_more</span>
+                            </div>
                         </div>
 
                         {/* Search */}
@@ -86,35 +108,42 @@ const OrderHistory = () => {
                                 </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                {orders.map((order) => (
+                                {filteredOrders.map((order) => (
                                     <tr
-                                        key={order.id}
-                                        onClick={() => navigate(`/order/${order.id}`)} // Используйте react-router-dom
+                                        key={order._key}
+                                        onClick={() => navigate(`/order/${order._key}`)}
                                         className="hover:bg-slate-50 cursor-pointer transition-colors"
                                     >
-                                        <td className="px-6 py-4 text-sm font-medium text-slate-900">#{order.id}</td>
+                                        <td className="px-6 py-4 text-sm font-medium text-slate-900">#{order._key?.substring(0, 8)}</td>
                                         <td className="px-6 py-4 text-sm">
-                                            <div className="flex flex-col">
-                                                <span className="text-slate-900 font-medium">{order.date}</span>
-                                                <span className="text-xs text-slate-500">{order.time}</span>
-                                            </div>
+                <span className="text-slate-900 font-medium">
+                    {new Date(order.created_at).toLocaleDateString()}
+                </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <StatusBadge type={order.type} color={order.statusColor} />
+                                            <StatusBadge status={order.status} />
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate" title={order.address}>
-                                            {order.address}
-                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-600 truncate">{order.address}</td>
+
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-slate-200 border border-slate-200"></div>
-                                                <span className="text-sm font-medium text-slate-700">{order.courier}</span>
-                                            </div>
+                                            {order.status === 'searching' ? (
+                                                <span className="text-slate-400 font-medium italic">—</span>
+                                            ) : (
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`h-8 w-8 rounded-full border border-slate-200 overflow-hidden bg-slate-100`}>
+                                                        <img src={`https://ui-avatars.com/api/?name=${order.client_name || 'Courier'}&background=42f042`} alt="courier" />
+                                                    </div>
+                                                    <span className="text-sm font-medium text-slate-700">
+                            {order.client_name || "Курьер"}
+                        </span>
+                                                </div>
+                                            )}
                                         </td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-900">{order.amount}</td>
+
+                                        <td className="px-6 py-4 text-right font-bold text-slate-900">{order.price} ₽</td>
                                         <td className="px-6 py-4 text-center">
-                                            <button className="text-slate-400 hover:text-primary transition-colors p-1">
-                                                <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                                            <button className="text-slate-400 hover:text-primary transition-colors">
+                                                <span className="material-symbols-outlined">chevron_right</span>
                                             </button>
                                         </td>
                                     </tr>
@@ -153,17 +182,17 @@ const OrderHistory = () => {
     );
 };
 
-const StatusBadge = ({ type, color }) => {
-    const styles = {
-        amber: 'bg-amber-100 text-amber-800 border-amber-200',
-        green: 'bg-green-100 text-green-800 border-green-200',
-        red: 'bg-red-100 text-red-800 border-red-200',
-        purple: 'bg-purple-100 text-purple-800 border-purple-200',
+const StatusBadge = ({ status }) => {
+    const config = {
+        searching: { text: 'Поиск', color: 'bg-amber-100 text-amber-800' },
+        active: { text: 'В работе', color: 'bg-blue-100 text-blue-800' },
+        done: { text: 'Выполнено', color: 'bg-green-100 text-green-800' }
     };
+    const c = config[status] || { text: status, color: 'bg-gray-100' };
 
     return (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${styles[color] || styles.green}`}>
-            {type}
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${c.color}`}>
+            {c.text}
         </span>
     );
 };
