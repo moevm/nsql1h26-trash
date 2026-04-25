@@ -42,9 +42,10 @@ const OrderHistory = () => {
                             <h2 className="text-3xl font-black text-slate-900 tracking-tight">История заказов</h2>
                             <p className="text-slate-500 mt-1">Отслеживайте статус и историю ваших заявок</p>
                         </div>
-                        <button className="bg-[#13ec13] hover:bg-[#0eb50e] text-white font-bold py-2.5 px-6 rounded-lg shadow-lg shadow-primary/30 transition-all flex items-center gap-2">
-                            <span className="material-symbols-outlined">add</span>
-                            Новый заказ
+                        <button className="group flex items-center justify-center gap-3 rounded-xl bg-primary px-8 py-4 text-[#0d1b0d] shadow-lg shadow-primary/20 hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                                onClick={() => navigate('/create-order')}>
+                            <span className="material-symbols-outlined text-2xl group-hover:rotate-90 transition-transform duration-300">add_circle</span>
+                            <span className="text-base font-black">Создать новый заказ</span>
                         </button>
                     </header>
 
@@ -123,7 +124,9 @@ const OrderHistory = () => {
                                         <td className="px-6 py-4">
                                             <StatusBadge status={order.status} />
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600 truncate">{order.address}</td>
+                                        <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[200px]">
+                                            {order.address?.full_address || "—"}
+                                        </td>
 
                                         <td className="px-6 py-4">
                                             {order.status === 'searching' ? (

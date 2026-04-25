@@ -73,7 +73,10 @@ const CustomerOrderDetails = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                     <InfoField label="Тип мусора" value={order.waste_type} />
                                     <InfoField label="Объем" value={`${order.volume} м³`} />
-                                    <InfoField label="Адрес" value={order.address} />
+                                    <InfoField label="Адрес" value={order.address?.full_address || "—"} />
+                                    <InfoField label="Подъезд" value={order.address?.details?.entrance || "—"} />
+                                    <InfoField label="Этаж" value={order.address?.details?.floor ?? "—"} />
+                                    <InfoField label="Домофон" value={order.address?.details?.intercom || "—"} />
                                     <InfoField label="Статус" value={order.status} />
                                 </div>
                             </section>

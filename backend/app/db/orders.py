@@ -25,46 +25,62 @@ def _ensure_collections():
 
     if not db.has_collection("Owns"):
         db.create_collection("Owns", edge=True)
-        print("✅ Создана Edge-коллекция: Owns")    
+        print("✅ Создана Edge-коллекция: Owns")
+
+    if not db.has_collection("Locations"):
+        db.create_collection("Locations")
+
+    if not db.has_collection("At"):
+        db.create_collection("At", edge=True)
+        print("✅ Создана Edge-коллекция: At")
 
 
 def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
-    """
-    Создаёт новый заказ.
-    client_key — _key пользователя-заказчика (нужен для связи)
-    """
     _ensure_collections()
     db = arango_instance.db
 
-
+    # 1. Данные заказа
     order_dict = order_in.model_dump()
-    order_dict["client_key"] = client_key
-    order_dict["price"] = price
-    print(f"DEBUG: [DB] Сохраняю заказ с ценой: {price}")
-    order_dict["created_at"] = str(datetime.now())
+    order_dict.pop("address", None)
+    order_dict.update({
+        "client_key": client_key,
+        "price": price,
+        "created_at": datetime.now().isoformat()  # <--- ИСПРАВЛЕНО
+    })
 
-    result = db.collection(ORDERS_COLLECTION).insert(order_dict, return_new=True)
-
-
-    order_data = result["new"]
+    order_result = db.collection(ORDERS_COLLECTION).insert(order_dict, return_new=True)
+    order_data = order_result["new"]
     order_key = order_data["_key"]
 
+    # 2. Локация
+    loc_doc = order_in.address.model_dump()
+    loc_result = db.collection("Locations").insert(loc_doc, return_new=True)
+    loc_key = loc_result["new"]["_key"]
+
+    db.collection("At").insert({
+        "_from": f"{ORDERS_COLLECTION}/{order_key}",
+        "_to": f"Locations/{loc_key}"
+    })
+
+    # 3. Связь Owns
     owns_data = {
         "_from": f"users/{client_key}",
-        "_to": f"orders/{order_key}",
-        "created_at": str(datetime.now()),
+        "_to": f"{ORDERS_COLLECTION}/{order_key}",
+        "created_at": datetime.now().isoformat(),
         "relation_type": "owns"
     }
 
-
     try:
         db.collection("Owns").insert(owns_data)
-        print(f"Создана связь Owns: users/{client_key} → orders/{order_key}")
+        print(f"✅ Создана связь Owns")
     except Exception as e:
-        print(f"[Error] Не удалось создать связь Owns: {e}")
+        print(f"❌ [Error] Не удалось создать связь Owns: {e}")
+
+    # 4. Подготовка ответа
+    order_data["address"] = order_in.address
+    order_data["id"] = order_key
 
     return Order(**order_data)
-
 
 
 def get_available_orders(type_filter: str = None):
@@ -128,18 +144,20 @@ def get_my_orders(client_key: str, status_filter: str = None):
     FOR o IN @@orders
         FILTER o.client_key == @client_key
         FILTER @status_filter == null OR o.status == @status_filter
-        SORT o.created_at DESC
-        RETURN o
+        
+        // Получаем адрес через ребро At
+        FOR loc IN 1..1 OUTBOUND o At
+            LET order_with_addr = MERGE(o, { "address": loc.address })
+            SORT order_with_addr.created_at DESC
+            RETURN order_with_addr
     """
 
-    cursor = db.aql.execute(
-        query,
-        bind_vars={
-            "@orders": ORDERS_COLLECTION,
-            "client_key": client_key,
-            "status_filter": status_filter
-        }
-    )
+    cursor = db.aql.execute(query, bind_vars={
+        "@orders": ORDERS_COLLECTION,
+        "client_key": client_key,
+        "status_filter": status_filter
+    })
+
 
     raw_orders = list(cursor)
 

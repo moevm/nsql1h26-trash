@@ -41,15 +41,6 @@ async def create_new_order(
 
         created_at_str = new_order.created_at.isoformat() if isinstance(new_order.created_at, datetime) else str(new_order.created_at)
 
-        db = arango_instance.db
-        owns_col = db.collection("Owns")
-
-        owns_col.insert({
-            "_from": f"users/{current_user.id}",
-            "_to": f"orders/{new_order.id}",
-            "created_at": created_at_str
-        })
-
         log_event(
             event_type="order_created",
             title=f"Новая заявка на вывоз",
@@ -74,18 +65,39 @@ async def create_new_order(
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
         current_user: UserResponse = Depends(get_current_active_client),
-        status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
-
+        status: Optional[str] = Query(None)
 ):
-    """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
-    try:
-        orders = get_my_orders(client_key=current_user.id, status_filter=status)
-        return orders
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Не удалось загрузить историю заказов: {str(e)}"
-        )
+    """Просмотр истории заказов с логированием"""
+    db = arango_instance.db
+    print(f"DEBUG: Запрос истории для пользователя {current_user.id}")
+
+    query = """
+    FOR o IN Orders
+        FILTER o.client_key == @client_key
+        FILTER @status == null OR o.status == @status
+        
+        LET loc = (FOR l IN 1..1 OUTBOUND o At RETURN l)[0]
+        
+        RETURN MERGE(o, { 
+            "id": o._key,
+            "address": loc ? {
+                "full_address": loc.full_address || (loc.address ? loc.address.full_address : "Нет адреса"),
+                "details": loc.details || (loc.address ? loc.address.details : "—")
+            } : null
+        })
+    """
+
+    cursor = db.aql.execute(query, bind_vars={
+        "client_key": current_user.id,
+        "status": status
+    })
+
+    data = list(cursor)
+    print(f"DEBUG: Найдено заказов: {len(data)}")
+    if data:
+        print(f"DEBUG: Пример объекта: {data[0]}")
+
+    return data
 
 @router.get("/{order_id}", response_model=Order)
 async def get_order_details(order_id: str, current_user=Depends(get_current_active_courier)):
@@ -117,12 +129,18 @@ async def get_order_details(order_id: str, current_user=Depends(get_current_acti
     else:
         order_doc["client_name"] = "Неизвестный заказчик"
 
-    query = """
-    FOR tx, edge IN 1..1 OUTBOUND @order_id History
-        RETURN tx
-    """
-    cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
-    tx = cursor.next() if not cursor.empty() else None
+    tx = None
+    if db.has_collection("History"):
+        query = """
+        FOR tx, edge IN 1..1 OUTBOUND @order_id History
+            RETURN tx
+        """
+        cursor = db.aql.execute(query, bind_vars={"order_id": f"Orders/{order_id}"})
+        tx = cursor.next() if not cursor.empty() else None
+
+        if tx is None:
+            cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
+            tx = cursor.next() if not cursor.empty() else None
     order_doc["transaction"] = tx
 
     print(f"DEBUG: [API] Объект перед отправкой: {order_doc}")
@@ -181,6 +199,10 @@ async def update_order_status(
         if not order.get("completion_photo"):
             raise HTTPException(status_code=400, detail="Сначала загрузите фото!")
         db = arango_instance.db
+        if not db.has_collection("Transactions"):
+            db.create_collection("Transactions")
+        if not db.has_collection("History"):
+            db.create_collection("History", edge=True)
         tx_doc = {
             "amount": order.get("price", 0.0),
             "type": "order_payout",
@@ -259,29 +281,39 @@ async def get_my_order_detail(
             )
 
         order_doc["id"] = order_doc.get("_key")
-
-        # === Получаем информацию о курьере, если он назначен ===
-        query_courier = """
-        FOR courier, edge IN 1..1 INBOUND @order_id Executes
-            RETURN {
-                id: courier._key,
-                full_name: courier.full_name,
-                phone: courier.phone,
-                rating: courier.rating,
-                transport: courier.transport
-            }
+        query = """
+        FOR o IN Orders
+            FILTER o._key == @order_id
+            FILTER o.client_key == @client_key
+            
+            LET loc = (FOR l IN 1..1 OUTBOUND o At RETURN l)[0]
+            
+            RETURN MERGE(o, { 
+                "address": loc ? {
+                    "full_address": loc.full_address,
+                    "details": loc.details
+                } : null
+            })
         """
 
-        cursor = db.aql.execute(query_courier, bind_vars={"order_id": f"orders/{order_id}"})
-        courier_info = cursor.next() if not cursor.empty() else None
+        cursor = db.aql.execute(query, bind_vars={
+            "order_id": order_id,
+            "client_key": current_user.id
+        })
 
-        if courier_info:
-            order_doc["courier"] = courier_info
+        order_doc = cursor.next() if not cursor.empty() else None
+
+        if not order_doc:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+
+
+        order_doc["id"] = order_doc.get("_key")
 
         for key in ["_id", "_rev", "_key"]:
             order_doc.pop(key, None)
 
         return order_doc
+
 
     except HTTPException:
         raise
