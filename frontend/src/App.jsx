@@ -50,7 +50,7 @@ function App() {
                     <Route path="/top-up-balance" element={<TopUpBalance />} />
                     <Route path="/customer-history" element={<CustomerOrderHistory />} />
                     <Route path="/customer-profile" element={<CustomerProfile />} />
-                    <Route path="/order/:id" element={<CustomerOrderDetails />} />
+                    <Route path="/order/:key" element={<CustomerOrderDetails />} />
                     <Route path="/create-order" element={<CreateOrder />} />
                     <Route path="/approve-order" element={<ApproveOrder />} />
                     <Route path="/login" element={<LoginPage />} />

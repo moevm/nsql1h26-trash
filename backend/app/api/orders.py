@@ -5,6 +5,7 @@ from app.db.orders import create_order, get_my_orders
 from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
+from app.db.events import log_event
 from typing import Optional
 import os
 import uuid
@@ -94,12 +95,18 @@ async def get_order_details(order_id: str, current_user=Depends(get_current_acti
     else:
         order_doc["client_name"] = "Неизвестный заказчик"
 
-    query = """
-    FOR tx, edge IN 1..1 OUTBOUND @order_id History
-        RETURN tx
-    """
-    cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
-    tx = cursor.next() if not cursor.empty() else None
+    tx = None
+    if db.has_collection("History"):
+        query = """
+        FOR tx, edge IN 1..1 OUTBOUND @order_id History
+            RETURN tx
+        """
+        cursor = db.aql.execute(query, bind_vars={"order_id": f"Orders/{order_id}"})
+        tx = cursor.next() if not cursor.empty() else None
+
+        if tx is None:
+            cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
+            tx = cursor.next() if not cursor.empty() else None
     order_doc["transaction"] = tx
 
     print(f"DEBUG: [API] Объект перед отправкой: {order_doc}")
@@ -121,8 +128,10 @@ async def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Заказ не найден")
 
-    courier_key = getattr(current_courier, 'key', getattr(current_courier, 'id', None))
-    print(f"DEBUG: Курьер: users/{courier_key}")
+    print(f"DEBUG: Тип объекта current_courier: {type(current_courier)}")
+    print(f"DEBUG: Все атрибуты объекта: {current_courier.__dict__}")
+    courier_key = current_courier.id
+    print(f"DEBUG: ИСПОЛЬЗУЕМЫЙ ID: {courier_key}")
 
     if status_update.status == "active":
         try:
@@ -140,6 +149,14 @@ async def update_order_status(
             executes_col.insert(edge_data)
             print("DEBUG: РЕБРО УСПЕШНО СОЗДАНО!")
 
+            log_event(
+                event_type="order_accepted",
+                title=f"Заказ ORD-{order_id} принят курьером",
+                description=f"Курьер: {current_courier.full_name}",
+                related_id=order_id,
+                related_type="order",
+            )
+
         except Exception as e:
             print(f"!!! DEBUG: ОШИБКА при вставке ребра: {e}")
             raise HTTPException(status_code=500, detail=f"Ошибка графа: {str(e)}")
@@ -148,6 +165,10 @@ async def update_order_status(
         if not order.get("completion_photo"):
             raise HTTPException(status_code=400, detail="Сначала загрузите фото!")
         db = arango_instance.db
+        if not db.has_collection("Transactions"):
+            db.create_collection("Transactions")
+        if not db.has_collection("History"):
+            db.create_collection("History", edge=True)
         tx_doc = {
             "amount": order.get("price", 0.0),
             "type": "order_payout",
@@ -162,6 +183,14 @@ async def update_order_status(
         })
 
     orders_col.update({"_key": order_id, "status": status_update.status})
+    if status_update.status == "done":
+        log_event(
+            event_type="order_completed",
+            title=f"Заказ ORD-{order_id} выполнен",
+            description=f"Курьер: {current_courier.full_name}",
+            related_id=order_id,
+            related_type="order",
+        )
     return {"message": "Статус обновлен"}
 
 UPLOAD_DIR = "uploads/completion_photos"
@@ -197,8 +226,8 @@ async def upload_completion_photo(
 
 @router.get("/my/{order_id}", response_model=Order)
 async def get_my_order_detail(
-    order_id: str,
-    current_user: UserResponse = Depends(get_current_active_client)
+        order_id: str,
+        current_user: UserResponse = Depends(get_current_active_client)
 ):
     """
     2.5 Просмотр деталей заказа клиентом
@@ -219,7 +248,7 @@ async def get_my_order_detail(
 
         order_doc["id"] = order_doc.get("_key")
 
-        # === Получаем информацию о курьере, если он назначен ===
+        # Получаем информацию о курьере, если он назначен
         query_courier = """
         FOR courier, edge IN 1..1 INBOUND @order_id Executes
             RETURN {
@@ -249,4 +278,3 @@ async def get_my_order_detail(
             status_code=500,
             detail=f"Не удалось загрузить детали заказа: {str(e)}"
         )
-

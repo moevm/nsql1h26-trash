@@ -1,9 +1,31 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './SidebarCustomer.jsx';
+import { useAuth } from '../../AuthContext';
+
 
 const CustomerDashboard = () => {
     const navigate = useNavigate();
+    const { user, balance } = useAuth();
+    const [orders, setOrders] = useState([]);
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            try {
+                const response = await fetch('/api/v1/orders/my', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const activeOrders = data.filter(o => o.status === 'active' || o.status === 'searching');
+                    setOrders(activeOrders);
+                }
+            } catch (e) {
+                console.error("Ошибка загрузки заказов:", e);
+            }
+        };
+        fetchOrders();
+    }, []);
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#f6f8f6] font-display">
             <Sidebar activePage="orders" />
@@ -16,7 +38,9 @@ const CustomerDashboard = () => {
                     <div className="flex items-center gap-6">
                         <div className="hidden md:flex items-center gap-2 rounded-full bg-[#f8fcf8] border border-[#e7f3e7] px-4 py-1.5 shadow-sm">
                             <span className="text-[10px] font-black uppercase text-[#4c9a4c] tracking-widest">Баланс</span>
-                            <span className="text-sm font-bold text-[#0d1b0d]">1 250 ₽</span>
+                            <span className="text-sm font-bold text-[#0d1b0d]">
+                                {balance.toLocaleString()} ₽
+                            </span>
                             <button className="ml-2 flex size-5 items-center justify-center rounded-full bg-primary text-[#0d1b0d] hover:scale-110 transition-transform"
                                     onClick={() => navigate('/top-up-balance')}>
                                 <span className="material-symbols-outlined text-[16px] font-bold">add</span>
@@ -24,11 +48,20 @@ const CustomerDashboard = () => {
                         </div>
                         <div className="flex items-center gap-3 border-l border-slate-100 pl-6">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-bold text-[#0d1b0d] leading-tight">Алексей П.</p>
-                                <p className="text-[10px] font-bold text-[#586458] uppercase tracking-tighter">Частный клиент</p>
+                                {/* Динамическое имя */}
+                                <p className="text-sm font-bold text-[#0d1b0d] leading-tight">
+                                    {user?.full_name || "Пользователь"}
+                                </p>
+                                <p className="text-[10px] font-bold text-[#586458] uppercase tracking-tighter">
+                                    {user?.role === 'customer' ? 'Частный клиент' : 'Пользователь'}
+                                </p>
                             </div>
+                            {/* Динамическая аватарка */}
                             <div className="size-10 rounded-full bg-slate-200 border-2 border-white shadow-sm"
-                                 style={{ backgroundImage: `url('https://api.dicebear.com/7.x/avataaars/svg?seed=Aleksey')`, backgroundSize: 'cover' }}>
+                                 style={{
+                                     backgroundImage: `url('https://ui-avatars.com/api/?name=${user?.full_name || 'User'}&background=42f042&color=0d1b0d')`,
+                                     backgroundSize: 'cover'
+                                 }}>
                             </div>
                         </div>
                     </div>
@@ -59,61 +92,55 @@ const CustomerDashboard = () => {
                     <div className="space-y-4">
                         <div className="flex items-center justify-between px-2">
                             <h4 className="text-sm font-black uppercase tracking-widest text-[#586458]">Текущий вывоз</h4>
-                            <button className="text-xs font-bold text-primary-hover hover:underline">Вся история</button>
+                            {orders.length > 0 && <button className="text-xs font-bold text-primary-hover hover:underline">Вся история</button>}
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-[#e7f3e7] shadow-sm overflow-hidden">
-                            <div className="p-6 md:p-8 flex flex-col md:flex-row justify-between gap-8">
-                                <div className="space-y-6">
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase rounded-full border border-blue-100 flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
-                                            Машина в пути
-                                        </span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-bold text-[#0d1b0d]">Заказ #4832</span>
-                                            {/* Добавленная фраза */}
-                                            <span className="flex items-center gap-1.5 text-xs font-bold text-[#586458] bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
-                                                <span className="material-symbols-outlined text-[14px] text-[#4c9a4c]">schedule</span>
-                                                прибудет через: <span className="text-[#0d1b0d]">15 минут</span>
-                                            </span>
-                                        </div>
-                                    </div>
+                        {orders.length === 0 ? (
+                            <p className="text-[#586458] text-sm italic px-2">У вас пока нет активных заказов.</p>
+                        ) : (
+                            orders.map((order) => (
+                                <div key={order._key} className="bg-white rounded-2xl border border-[#e7f3e7] shadow-sm overflow-hidden mb-4">
+                                    <div className="p-6 md:p-8 flex flex-col md:flex-row justify-between gap-8">
+                                        <div className="space-y-6">
+                                            <div className="flex flex-wrap items-center gap-3">
+                            <span className={`px-3 py-1 text-[10px] font-black uppercase rounded-full border flex items-center gap-1.5 ${
+                                order.status === 'active' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                            }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${order.status === 'active' ? 'bg-blue-500' : 'bg-amber-500'}`}></span>
+                                {order.status === 'active' ? 'Машина в пути' : 'Поиск курьера'}
+                            </span>
+                                                <span className="text-sm font-bold text-[#0d1b0d]">Заказ #{order._key?.substring(0, 8)}</span>
+                                            </div>
 
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 rounded-full bg-slate-100 border-2 border-white shadow-sm overflow-hidden">
-                                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Michael" alt="courier" />
+                                            {order.status === 'active' ? (
+                                                <div className="flex items-center gap-4">
+                                                    <div className="size-12 rounded-full bg-slate-100 border-2 border-white shadow-sm overflow-hidden">
+                                                        <img src={`https://ui-avatars.com/api/?name=${order.client_name || 'Courier'}&background=42f042`} alt="courier" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-black text-[#0d1b0d]">Курьер назначен</p>
+                                                        <p className="text-xs font-bold text-[#586458]">Ожидайте прибытия</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-[#586458] italic">Курьер пока не найден, пожалуйста, подождите.</p>
+                                            )}
                                         </div>
-                                        <div>
-                                            <p className="font-black text-[#0d1b0d]">Курьер: Михаил</p>
-                                            <p className="text-xs font-bold text-[#586458]">⭐ 4.9 • ГАЗель (А123БВ)</p>
+
+                                        <div className="flex flex-col justify-center gap-3 md:border-l border-[#e7f3e7] md:pl-8 min-w-[200px]">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-[#586458] font-bold">Тип:</span>
+                                                <span className="font-black">{order.waste_type}</span>
+                                            </div>
+                                            <div className="pt-3 mt-1 border-t border-[#e7f3e7] flex justify-between items-center">
+                                                <span className="text-xs font-black uppercase text-[#586458]">К оплате:</span>
+                                                <span className="text-2xl font-black text-green-600">{order.price} ₽</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className="flex flex-col justify-center gap-3 md:border-l border-[#e7f3e7] md:pl-8 min-w-[200px]">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-[#586458] font-bold">Тип:</span>
-                                        <span className="font-black">Крупногабарит</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-[#586458] font-bold">Объем:</span>
-                                        <span className="font-black">~ 2 м³</span>
-                                    </div>
-                                    <div className="pt-3 mt-1 border-t border-[#e7f3e7] flex justify-between items-center">
-                                        <span className="text-xs font-black uppercase text-[#586458]">К оплате:</span>
-                                        <span className="text-2xl font-black text-green-600">1 200 ₽</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="px-6 py-4 bg-[#f8fcf8] border-t border-[#e7f3e7] flex justify-end">
-                                <button className="flex items-center gap-2 text-sm font-black text-[#4c9a4c] hover:text-[#0d1b0d] transition-colors">
-                                    <span className="material-symbols-outlined">my_location</span>
-                                    Отследить на карте
-                                </button>
-                            </div>
-                        </div>
+                            ))
+                        )}
                     </div>
                 </div>
             </main>

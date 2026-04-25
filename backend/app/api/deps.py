@@ -58,3 +58,12 @@ async def get_current_active_courier(current_user: UserResponse = Depends(get_cu
             detail="Доступ разрешён только курьерам"
         )
     return current_user
+
+
+async def get_current_active_admin(current_user: UserResponse = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступ разрешён только администраторам"
+        )
+    return current_user

@@ -11,7 +11,7 @@ const CourierDashboard = () => {
 
     const fetchOrders = async (tab) => {
         const typeMap = {
-            'Бытовой': 'Бытовой мусор',
+            'Бытовой': 'Бытовой',
             'Строительный': 'Строительный',
             'Мебель': 'Мебель'
         };
@@ -20,6 +20,7 @@ const CourierDashboard = () => {
         const url = `/api/v1/courier/available-orders${typeParam}`;
 
         try {
+            console.log("DEBUG: Отправляю запрос с токеном:", localStorage.getItem('access_token'));
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
@@ -27,14 +28,13 @@ const CourierDashboard = () => {
             });
             if (!response.ok) throw new Error('Ошибка сети');
             const data = await response.json();
-            setOrders(data); // data — это уже массив
+            setOrders(data);
         } catch (error) {
             console.error("Не удалось загрузить заказы:", error);
             setOrders([]);
         }
     };
 
-    // 4. Загрузка при изменении вкладки
     useEffect(() => {
         fetchOrders(activeTab);
     }, [activeTab]);
@@ -66,10 +66,6 @@ const CourierDashboard = () => {
                         <FilterTab label="Мебель" icon="chair" active={activeTab === 'Мебель'} onClick={() => setActiveTab('Мебель')} />
                     </div>
 
-                    <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#e7f3e7] rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shrink-0">
-                        <span className="icon-base text-[20px] text-slate-400">sort</span>
-                        Сортировка: Ближайшие
-                    </button>
                 </div>
 
                 {/* Список заказов */}

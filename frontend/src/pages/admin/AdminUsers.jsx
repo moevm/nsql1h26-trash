@@ -1,13 +1,68 @@
-import React from 'react';
-import AdminSidebar from "./AdminSidebar";
+import React, { useEffect, useMemo, useState } from 'react';
+import AdminSidebar from './AdminSidebar';
 
 const AdminUsers = () => {
-    // Пример данных (в реальном приложении придут из API)
-    const users = [
-        { id: 1, name: "Алексей Петров", phone: "+7 (912) 345-67-89", email: "alex@example.com", role: "client", created: "01.09.2024", updated: "20.10.2024", status: "active" },
-        { id: 2, name: "Михаил Волков", phone: "+7 (999) 111-22-33", email: "m.volkov@courier.eco", role: "courier", created: "15.08.2024", updated: "-", status: "active" },
-        { id: 3, name: "Иван Иванов", phone: "+7 (900) 000-00-00", email: "ivan.block@mail.ru", role: "client", created: "10.10.2024", updated: "22.10.2024", status: "blocked" },
-    ];
+    const token = localStorage.getItem('access_token');
+
+    const [users, setUsers] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [loading, setLoading] = useState(false);
+
+    const [filters, setFilters] = useState({
+        full_name: '',
+        email: '',
+        phone: '',
+        role: '',
+        is_active: '',
+    });
+
+    const [appliedFilters, setAppliedFilters] = useState(filters);
+
+    const roleLabel = useMemo(() => ({
+        admin: 'Администратор',
+        courier: 'Курьер',
+        customer: 'Заказчик',
+    }), []);
+
+    const fetchUsers = async (currentFilters) => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            Object.entries(currentFilters).forEach(([key, value]) => {
+                if (value !== '' && value !== null && value !== undefined) {
+                    params.set(key, value);
+                }
+            });
+
+            const res = await fetch(`/api/v1/admin/users?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!res.ok) {
+                throw new Error('Ошибка загрузки пользователей');
+            }
+
+            const data = await res.json();
+            setUsers(data.items || []);
+            setTotal(data.total || 0);
+        } catch (e) {
+            console.error(e);
+            setUsers([]);
+            setTotal(0);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUsers(appliedFilters);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [appliedFilters]);
+
+    const handleApply = (e) => {
+        e.preventDefault();
+        setAppliedFilters(filters);
+    };
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#f8fcf8] text-[#0d1b0d] font-['Public_Sans']">
@@ -17,16 +72,7 @@ const AdminUsers = () => {
                 {/* Header */}
                 <header className="flex h-20 items-center justify-between border-b border-[#e7f3e7] px-8 bg-[#f8fcf8] sticky top-0 z-10">
                     <h2 className="text-xl font-bold">Управление пользователями</h2>
-                    <div className="flex items-center gap-3">
-                        <div className="text-right hidden sm:block">
-                            <p className="text-sm font-bold leading-tight">Администратор</p>
-                            <p className="text-xs text-[#586458]">Система</p>
-                        </div>
-                        <div
-                            className="size-10 rounded-full bg-gray-200 bg-cover bg-center ring-2 ring-[#42f042]/50"
-                            style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Admin&background=42f042&color=0d1b0d')" }}
-                        />
-                    </div>
+                    <div className="text-sm text-[#586458]">Всего: {total}</div>
                 </header>
 
                 <div className="flex flex-1 flex-col p-8 w-full gap-6">
@@ -37,34 +83,64 @@ const AdminUsers = () => {
                             <span className="material-symbols-outlined text-[#4c9a4c]">filter_alt</span>
                             <h3 className="font-bold">Многокритериальный фильтр</h3>
                         </div>
-                        <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-medium text-[#586458]">Поиск (ФИО, Email, Телефон)</label>
+                        <form onSubmit={handleApply} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                            <div className="space-y-1 lg:col-span-2">
+                                <label className="text-xs font-medium text-[#586458]">ФИО (подстрока)</label>
                                 <input
-                                    className="w-full rounded-lg border border-[#e7f3e7] bg-[#f8fcf8] px-3 py-2 text-sm focus:border-[#42f042] focus:ring-1 focus:ring-[#42f042] outline-none transition-all"
-                                    placeholder="Введите подстроку..."
+                                    className="w-full rounded-lg border border-[#e7f3e7] bg-[#f8fcf8] px-3 py-2 text-sm outline-none"
+                                    placeholder="Иван"
+                                    value={filters.full_name}
+                                    onChange={(e) => setFilters((p) => ({ ...p, full_name: e.target.value }))}
                                     type="text"
                                 />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-[#586458]">Роль в системе</label>
-                                <select className="w-full rounded-lg border border-[#e7f3e7] bg-[#f8fcf8] px-3 py-2 text-sm focus:border-[#42f042] outline-none">
+                                <label className="text-xs font-medium text-[#586458]">Email (подстрока)</label>
+                                <input
+                                    className="w-full rounded-lg border border-[#e7f3e7] bg-[#f8fcf8] px-3 py-2 text-sm outline-none"
+                                    placeholder="trash.local"
+                                    value={filters.email}
+                                    onChange={(e) => setFilters((p) => ({ ...p, email: e.target.value }))}
+                                    type="text"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-[#586458]">Телефон (подстрока)</label>
+                                <input
+                                    className="w-full rounded-lg border border-[#e7f3e7] bg-[#f8fcf8] px-3 py-2 text-sm outline-none"
+                                    placeholder="+7000"
+                                    value={filters.phone}
+                                    onChange={(e) => setFilters((p) => ({ ...p, phone: e.target.value }))}
+                                    type="text"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-[#586458]">Роль</label>
+                                <select
+                                    className="w-full rounded-lg border border-[#e7f3e7] bg-[#f8fcf8] px-3 py-2 text-sm outline-none"
+                                    value={filters.role}
+                                    onChange={(e) => setFilters((p) => ({ ...p, role: e.target.value }))}
+                                >
                                     <option value="">Все роли</option>
-                                    <option value="client">Клиент</option>
+                                    <option value="customer">Заказчик</option>
                                     <option value="courier">Курьер</option>
                                     <option value="admin">Администратор</option>
                                 </select>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-[#586458]">Статус аккаунта</label>
-                                <select className="w-full rounded-lg border border-[#e7f3e7] bg-[#f8fcf8] px-3 py-2 text-sm focus:border-[#42f042] outline-none">
-                                    <option value="">Любой статус</option>
-                                    <option value="active">Активен</option>
-                                    <option value="blocked">Заблокирован</option>
+                                <label className="text-xs font-medium text-[#586458]">Статус</label>
+                                <select
+                                    className="w-full rounded-lg border border-[#e7f3e7] bg-[#f8fcf8] px-3 py-2 text-sm outline-none"
+                                    value={filters.is_active}
+                                    onChange={(e) => setFilters((p) => ({ ...p, is_active: e.target.value }))}
+                                >
+                                    <option value="">Любой</option>
+                                    <option value="true">Активен</option>
+                                    <option value="false">Неактивен</option>
                                 </select>
                             </div>
-                            <div className="space-y-1 flex items-end">
-                                <button type="button" className="w-full bg-[#f0f7f0] hover:bg-[#42f042]/20 text-[#0d1b0d] font-bold py-2 rounded-lg border border-[#e7f3e7] transition-colors">
+                            <div className="space-y-1 flex items-end lg:col-span-1">
+                                <button type="submit" className="w-full bg-[#f0f7f0] hover:bg-[#42f042]/20 text-[#0d1b0d] font-bold py-2 rounded-lg border border-[#e7f3e7] transition-colors">
                                     Применить фильтр
                                 </button>
                             </div>
@@ -76,76 +152,46 @@ const AdminUsers = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm whitespace-nowrap">
                                 <thead className="bg-[#f8fcf8] text-[#586458] border-b border-[#e7f3e7]">
-                                <tr>
-                                    <th className="px-6 py-4 font-semibold">Пользователь</th>
-                                    <th className="px-6 py-4 font-semibold">Контакты</th>
-                                    <th className="px-6 py-4 font-semibold">Роль</th>
-                                    <th className="px-6 py-4 font-semibold">Создан</th>
-                                    <th className="px-6 py-4 font-semibold">Статус</th>
-                                    <th className="px-6 py-4 font-semibold text-right">Действия</th>
-                                </tr>
+                                    <tr>
+                                        <th className="px-6 py-4 font-semibold">Пользователь</th>
+                                        <th className="px-6 py-4 font-semibold">Контакты</th>
+                                        <th className="px-6 py-4 font-semibold">Роль</th>
+                                        <th className="px-6 py-4 font-semibold">Создан</th>
+                                        <th className="px-6 py-4 font-semibold">Статус</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#e7f3e7]">
-                                {users.map((user) => (
-                                    <tr key={user.id} className={`hover:bg-[#f8fcf8] transition-colors ${user.status === 'blocked' ? 'opacity-75' : ''}`}>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div
-                                                    className={`size-8 rounded-full bg-gray-200 bg-cover bg-center ${user.status === 'blocked' ? 'grayscale' : ''}`}
-                                                    style={{ backgroundImage: `url('https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=e7f3e7&color=0d1b0d')` }}
-                                                />
-                                                <div className="font-medium">{user.name}</div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-[#586458]">
-                                            <div>{user.phone}</div>
-                                            <div className="text-xs">{user.email}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center gap-1 font-medium ${user.role === 'courier' ? 'text-[#4c9a4c]' : 'text-[#586458]'}`}>
-                                                    <span className="material-symbols-outlined text-[18px]">
-                                                        {user.role === 'courier' ? 'local_shipping' : 'person'}
-                                                    </span>
-                                                    {user.role === 'courier' ? 'Курьер' : 'Клиент'}
+                                    {loading ? (
+                                        <tr>
+                                            <td className="px-6 py-8 text-[#586458]" colSpan={5}>Загрузка...</td>
+                                        </tr>
+                                    ) : users.length === 0 ? (
+                                        <tr>
+                                            <td className="px-6 py-8 text-[#586458]" colSpan={5}>Пользователи не найдены</td>
+                                        </tr>
+                                    ) : users.map((user) => (
+                                        <tr key={user.id} className="hover:bg-[#f8fcf8] transition-colors">
+                                            <td className="px-6 py-4 font-medium">{user.full_name}</td>
+                                            <td className="px-6 py-4 text-[#586458]">
+                                                <div>{user.phone}</div>
+                                                <div className="text-xs">{user.email}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {roleLabel[user.role] || user.role}
+                                            </td>
+                                            <td className="px-6 py-4 text-[#586458]">
+                                                {user.created_at ? new Date(user.created_at).toLocaleString('ru-RU') : '-'}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                    }`}>
+                                                    {user.is_active ? 'Активен' : 'Неактивен'}
                                                 </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-[#586458]">{user.created}</td>
-                                        <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                                    user.status === 'active'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-red-100 text-red-800'
-                                                }`}>
-                                                    {user.status === 'active' ? 'Активен' : 'Заблокирован'}
-                                                </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button className="text-[#586458] hover:text-[#42f042] transition-colors" title="Просмотр">
-                                                <span className="material-symbols-outlined text-xl">visibility</span>
-                                            </button>
-                                            <button className="ml-3 text-[#586458] hover:text-[#0d1b0d] transition-colors" title="Редактировать">
-                                                <span className="material-symbols-outlined text-xl">edit</span>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
-                        </div>
-
-                        {/* Пагинация */}
-                        <div className="px-6 py-4 border-t border-[#e7f3e7] flex items-center justify-between bg-white mt-auto">
-                            <span className="text-sm text-[#586458]">Показано 1-3 из 42 пользователей</span>
-                            <div className="flex gap-1">
-                                <button className="p-1 rounded bg-[#f8fcf8] text-[#a0aead] border border-[#e7f3e7]" disabled>
-                                    <span className="material-symbols-outlined text-sm">chevron_left</span>
-                                </button>
-                                <button className="px-3 py-1 text-sm rounded bg-[#42f042] text-[#0d1b0d] font-bold">1</button>
-                                <button className="px-3 py-1 text-sm rounded hover:bg-[#f0f7f0] transition-colors">2</button>
-                                <button className="p-1 rounded bg-[#f8fcf8] hover:bg-[#e7f3e7] border border-[#e7f3e7] transition-colors">
-                                    <span className="material-symbols-outlined text-sm">chevron_right</span>
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>

@@ -16,6 +16,17 @@ settings = Dynaconf(
         Validator("DEBUG_ADMIN_EMAIL", default="admin@trash.local"),
         Validator("DEBUG_ADMIN_PHONE", default="+70000000000"),
         Validator("DEBUG_ADMIN_PASSWORD", default="Admin123"),
+        Validator("DEBUG_COURIER_FULL_NAME", default="Тестовый Курьер"),
+        Validator("DEBUG_COURIER_EMAIL", default="courier@trash.local"),
+        Validator("DEBUG_COURIER_PHONE", default="+70000000001"),
+        Validator("DEBUG_COURIER_PASSWORD", default="Courier123"),
+        Validator("DEBUG_COURIER_CITY", default="Санкт-Петербург"),
+        Validator("DEBUG_COURIER_TRANSPORT", default="car"),
+        Validator("DEBUG_CUSTOMER_FULL_NAME", default="Тестовый Заказчик"),
+        Validator("DEBUG_CUSTOMER_EMAIL", default="customer@trash.local"),
+        Validator("DEBUG_CUSTOMER_PHONE", default="+70000000002"),
+        Validator("DEBUG_CUSTOMER_PASSWORD", default="Customer123"),
+        Validator("DEBUG_CUSTOMER_ADDRESS", default="г. Санкт-Петербург, Невский пр., д. 1"),
     ]
 )
 

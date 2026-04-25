@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext.jsx'
 
 const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [formData, setFormData] = useState({
         login: '',
         password: ''
@@ -26,12 +28,26 @@ const LoginPage = () => {
 
             if (response.ok) {
                 localStorage.setItem('access_token', result.access_token);
-                navigate('/courier-dash');
+
+                login({
+                    id: result.id,
+                    name: result.full_name,
+                    email: result.email,
+                    phone: result.phone,
+                    role: result.role,
+                    transport: result.transport,
+
+                });
+
+                if (result.role === 'customer') navigate('/customer-dashboard');
+                else if (result.role === 'courier') navigate('/courier-dash');
+                else if (result.role === 'admin') navigate('/admin-dashboard');
             } else {
-                alert(result.detail ? "Ошибка входа" : "Неверные данные");
+                alert(result.detail || "Неверные данные");
             }
         } catch (error) {
-            alert("Ошибка сети");
+            console.error("Ошибка:", error);
+            alert("Не удалось выполнить вход. Проверьте, что backend запущен и доступен.");
         }
     };
     const openModal = (e) => {
@@ -62,7 +78,7 @@ const LoginPage = () => {
 
                             <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#e7f3e7] hover:border-primary hover:bg-green-50 text-text-main transition-all duration-200 group"
 
-                                    onClick={() => navigate('/')}>
+                                onClick={() => navigate('/')}>
 
                                 <span className="material-symbols-outlined text-[#4c9a4c] group-hover:text-primary transition-colors">arrow_back</span>
 
@@ -88,15 +104,13 @@ const LoginPage = () => {
 
 
 
-                        {/* Right side — Registration Button */}
-
                         <div className="flex items-center gap-4">
 
                             <span className="hidden md:block text-sm text-[#4c9a4c] font-medium">Ещё нет аккаунта?</span>
 
                             <button className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-black text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
 
-                                    onClick={() => navigate('/register')}>
+                                onClick={() => navigate('/register')}>
 
                                 Зарегистрироваться
 
