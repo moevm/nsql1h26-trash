@@ -34,20 +34,7 @@ async def create_new_order(
 ):
     """Создание нового заказа и создание связи Owns"""
     try:
-        client_key = current_user.id
-
         new_order = create_order(order_in, client_key=current_user.id, price=order_in.price)
-
-        created_at_str = new_order.created_at.isoformat() if isinstance(new_order.created_at, datetime) else str(new_order.created_at)
-
-        db = arango_instance.db
-        owns_col = db.collection("Owns")
-
-        owns_col.insert({
-            "_from": f"users/{current_user.id}",
-            "_to": f"orders/{new_order.id}",
-            "created_at": created_at_str
-        })
 
         return new_order
 
@@ -65,11 +52,11 @@ async def create_new_order(
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
     current_user: UserResponse = Depends(get_current_active_client),
-    status: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+    status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
 ):
     """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
     try:
-        orders = get_my_orders(client_key=current_user.id, status_filter=status)
+        orders = get_my_orders(client_key=current_user.id, status_filter=status_m)
         return orders
     except Exception as e:
         raise HTTPException(
