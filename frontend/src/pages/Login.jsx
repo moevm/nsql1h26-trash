@@ -18,7 +18,7 @@ const LoginPage = () => {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+            const response = await fetch('/api/v1/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ login: formData.login, password: formData.password }),
@@ -47,6 +47,7 @@ const LoginPage = () => {
             }
         } catch (error) {
             console.error("Ошибка:", error);
+            alert("Не удалось выполнить вход. Проверьте, что backend запущен и доступен.");
         }
     };
     const openModal = (e) => {
@@ -77,7 +78,7 @@ const LoginPage = () => {
 
                             <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#e7f3e7] hover:border-primary hover:bg-green-50 text-text-main transition-all duration-200 group"
 
-                                    onClick={() => navigate('/')}>
+                                onClick={() => navigate('/')}>
 
                                 <span className="material-symbols-outlined text-[#4c9a4c] group-hover:text-primary transition-colors">arrow_back</span>
 
@@ -109,7 +110,7 @@ const LoginPage = () => {
 
                             <button className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-black text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
 
-                                    onClick={() => navigate('/register')}>
+                                onClick={() => navigate('/register')}>
 
                                 Зарегистрироваться
 

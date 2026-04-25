@@ -281,19 +281,17 @@ async def get_my_order_detail(
             )
 
         order_doc["id"] = order_doc.get("_key")
-        query = """
-        FOR o IN Orders
-            FILTER o._key == @order_id
-            FILTER o.client_key == @client_key
-            
-            LET loc = (FOR l IN 1..1 OUTBOUND o At RETURN l)[0]
-            
-            RETURN MERGE(o, { 
-                "address": loc ? {
-                    "full_address": loc.full_address,
-                    "details": loc.details
-                } : null
-            })
+
+        # Получаем информацию о курьере, если он назначен
+        query_courier = """
+        FOR courier, edge IN 1..1 INBOUND @order_id Executes
+            RETURN {
+                id: courier._key,
+                full_name: courier.full_name,
+                phone: courier.phone,
+                rating: courier.rating,
+                transport: courier.transport
+            }
         """
 
         cursor = db.aql.execute(query, bind_vars={
