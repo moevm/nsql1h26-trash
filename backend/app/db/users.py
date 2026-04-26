@@ -1,6 +1,6 @@
 from app.db.session import arango_instance
 
-USERS_COLLECTION = "users"
+USERS_COLLECTION = "Users"
 
 
 def ensure_users_collection():
@@ -13,7 +13,7 @@ def ensure_users_collection():
 def get_user_by_email(email: str):
     db = arango_instance.db
     cursor = db.aql.execute(
-        "FOR u IN users FILTER u.email == @email RETURN u",
+        "FOR u IN Users FILTER u.email == @email RETURN u",
         bind_vars={"email": email}
     )
     results = list(cursor)
@@ -23,7 +23,7 @@ def get_user_by_email(email: str):
 def get_user_by_email_or_phone(login: str):
     db = arango_instance.db
     cursor = db.aql.execute(
-        "FOR u IN users FILTER u.email == @login OR u.phone == @login RETURN u",
+        "FOR u IN Users FILTER u.email == @login OR u.phone == @login RETURN u",
         bind_vars={"login": login}
     )
     results = list(cursor)
