@@ -15,6 +15,7 @@ const CustomerOrderDetails = () => {
                 });
                 if (response.ok) {
                     const data = await response.json();
+                    console.log("DEBUG: Объект заказа:", data);
                     setOrder(data);
                 }
             } catch (e) {
@@ -37,7 +38,7 @@ const CustomerOrderDetails = () => {
             <main className="flex-1 overflow-x-hidden overflow-y-auto">
                 <header className="flex h-20 items-center justify-between border-b border-[#e7f3e7] px-8 bg-white sticky top-0 z-10 shrink-0">
                     {/* Используем динамический ключ */}
-                    <h2 className="text-s text-[#0d1b0d]">Главная/История/Заказ #{order._key?.substring(0, 8)}</h2>
+                    <h2 className="text-s text-[#0d1b0d]">Главная/История/Заказ #{order.id?.substring(0, 8)}</h2>
                 </header>
                 <div className="container mx-auto px-6 py-8 max-w-6xl">
 
@@ -53,7 +54,7 @@ const CustomerOrderDetails = () => {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                         <div>
                             <div className="flex items-center gap-3">
-                                <h1 className="text-3xl font-black tracking-tight">Заказ #{order._key?.substring(0, 8)}</h1>
+                                <h1 className="text-3xl font-black tracking-tight">Заказ #{order.id?.substring(0, 8)}</h1>
                                 <span className="bg-[#42f042]/20 text-[#2da32d] border border-[#42f042]/30 px-3 py-1 rounded-full text-xs font-black uppercase">
                                     {order.status}
                                 </span>
@@ -73,7 +74,10 @@ const CustomerOrderDetails = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                     <InfoField label="Тип мусора" value={order.waste_type} />
                                     <InfoField label="Объем" value={`${order.volume} м³`} />
-                                    <InfoField label="Адрес" value={order.address} />
+                                    <InfoField label="Адрес" value={order.address || "—"} />
+                                    <InfoField label="Подъезд" value={order.address_details?.entrance || "—"} />
+                                    <InfoField label="Этаж" value={order.address_details?.floor ?? "—"} />
+                                    <InfoField label="Домофон" value={order.address_details?.intercom || "—"} />
                                     <InfoField label="Статус" value={order.status} />
                                 </div>
                             </section>
