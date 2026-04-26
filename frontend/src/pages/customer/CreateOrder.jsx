@@ -33,9 +33,9 @@ const CreateOrder = () => {
             volume: Number(volume),
             address: `${city}, ул. ${street}, д. ${house}`,
             address_details: {
-                entrance: entrance,
-                floor: Number(floor),
-                intercom: intercom
+                entrance: entrance || null,
+                floor: floor ? Number(floor) : null,
+                intercom: intercom || null
             },
             scheduled_at: new Date().toISOString(),
             description: comment,
