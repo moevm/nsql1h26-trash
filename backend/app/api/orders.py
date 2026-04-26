@@ -66,15 +66,9 @@ async def get_my_orders_endpoint(
 
 @router.get("/{order_id}", response_model=Order)
 async def get_order_details(order_id: str, current_user=Depends(get_current_active_courier)):
-    db = arango_instance.db
-    orders_col = db.collection("Orders")
-
-    print(f"DEBUG: Пытаюсь получить заказ по ID: {order_id}")
-    order_doc = orders_col.get(order_id)
-    print(f"DEBUG: [API] Заказ найден в базе: {order_doc}")
+    order_doc = get_order_details_for_courier(order_id)
 
     if not order_doc:
-        print(f"DEBUG: ЗАКАЗ НЕ НАЙДЕН В КОЛЛЕКЦИИ")
         raise HTTPException(status_code=404, detail="Заказ не найден")
 
     print(f"DEBUG: Заказ найден: {order_doc['_key']}")

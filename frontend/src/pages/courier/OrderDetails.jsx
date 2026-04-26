@@ -177,7 +177,7 @@ const OrderDetails = () => {
                                         </div>
                                         <div className="flex flex-wrap gap-3">
                                             <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 text-sm font-medium text-[#0d1b0d]">
-                                                Подъезд: <span className="font-bold">{order.address_details?.entrance || '-'}</span>
+                                                Подъезд: <span className="font-bold">{order.address_details?.entrance ?  order.address_details.entrance : ''}</span>
                                             </div>
                                             <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 text-sm font-medium text-[#0d1b0d]">
                                                 Этаж: <span className="font-bold">{order.address_details?.floor || '-'}</span>
