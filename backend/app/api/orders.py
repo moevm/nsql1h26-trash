@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from app.models.order import OrderCreate, Order, StatusUpdate
-from app.db.orders import create_order, get_my_orders, get_order_by_id_for_client
+from app.db.orders import create_order, get_my_orders, get_order_by_id_for_client, get_order_details_for_courier, update_order_status_by_courier
 from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
@@ -64,99 +64,51 @@ async def get_my_orders_endpoint(
             detail=f"Не удалось загрузить историю заказов: {str(e)}"
         )
 
+
 @router.get("/{order_id}", response_model=Order)
-async def get_order_details(order_id: str, current_user=Depends(get_current_active_courier)):
+async def get_order_details(
+    order_id: str, 
+    current_user: UserResponse = Depends(get_current_active_courier)
+):
+    """
+    Просмотр деталей заказа курьером.
+    """
     order_doc = get_order_details_for_courier(order_id)
 
     if not order_doc:
         raise HTTPException(status_code=404, detail="Заказ не найден")
 
-    print(f"DEBUG: Заказ найден: {order_doc['_key']}")
-
-    # Поиск владельца
-    query = "FOR user, edge IN 1..1 INBOUND @order_id Owns RETURN user"
-    bind_vars = {"order_id": f"orders/{order_id}"}
-
-    print(f"DEBUG: Запускаю AQL с ID: {bind_vars['order_id']}")
-    cursor = db.aql.execute(query, bind_vars=bind_vars)
-    client = cursor.next() if not cursor.empty() else None
-
-    print(f"DEBUG: Владелец найден: {client}")
-
-    if client:
-        order_doc["client_name"] = client.get("name") or client.get("full_name") or "Неизвестный заказчик"
-    else:
-        order_doc["client_name"] = "Неизвестный заказчик"
-
-    query = """
-    FOR tx, edge IN 1..1 OUTBOUND @order_id History
-        RETURN tx
-    """
-    cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
-    tx = cursor.next() if not cursor.empty() else None
-    order_doc["transaction"] = tx
-
-    print(f"DEBUG: [API] Объект перед отправкой: {order_doc}")
     return order_doc
+
 
 @router.put("/{order_id}/status")
 async def update_order_status(
-        order_id: str,
-        status_update: StatusUpdate,
-        current_courier = Depends(get_current_active_courier)
+    order_id: str,
+    status_update: StatusUpdate,
+    current_courier: UserResponse = Depends(get_current_active_courier)
 ):
-    "Статус заказа(обновление)"
-    db = arango_instance.db
-    orders_col = db.collection("Orders")
+    """
+    Обновление статуса заказа с автоматическим созданием связей и транзакций.
+    """
 
-    print(f"DEBUG: Запрос на смену статуса заказа {order_id} на {status_update.status}")
+    courier_id = current_courier.id 
 
-    order = orders_col.get(order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="Заказ не найден")
+    result = update_order_status_by_courier(
+        order_key=order_id, 
+        new_status=status_update.status, 
+        courier_key=courier_id
+    )
 
-    courier_key = getattr(current_courier, 'key', getattr(current_courier, 'id', None))
-    print(f"DEBUG: Курьер: users/{courier_key}")
+    if "error" in result:
+        if result["error"] == "not_found":
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+        if result["error"] == "no_photo":
+            raise HTTPException(status_code=400, detail="Сначала загрузите фото подтверждения!")
 
-    if status_update.status == "active":
-        try:
-            executes_col = db.collection("Executes")
-            from_node = f"users/{courier_key}"
-            to_node = f"Orders/{order_id}"
+    return {"message": f"Статус успешно изменен на {status_update.status}"}
 
-            print(f"DEBUG: Пытаюсь создать ребро: {from_node} -> {to_node}")
 
-            edge_data = {
-                "_from": from_node,
-                "_to": to_node,
-                "started_at": datetime.now(timezone.utc).isoformat()
-            }
-            executes_col.insert(edge_data)
-            print("DEBUG: РЕБРО УСПЕШНО СОЗДАНО!")
 
-        except Exception as e:
-            print(f"!!! DEBUG: ОШИБКА при вставке ребра: {e}")
-            raise HTTPException(status_code=500, detail=f"Ошибка графа: {str(e)}")
-
-    elif status_update.status == "done":
-        if not order.get("completion_photo"):
-            raise HTTPException(status_code=400, detail="Сначала загрузите фото!")
-        db = arango_instance.db
-        tx_doc = {
-            "amount": order.get("price", 0.0),
-            "type": "order_payout",
-            "status": "success",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        tx_result = db.collection("Transactions").insert(tx_doc)
-
-        db.collection("History").insert({
-            "_from": f"Orders/{order_id}",
-            "_to": f"Transactions/{tx_result['_key']}"
-        })
-
-    orders_col.update({"_key": order_id, "status": status_update.status})
-    return {"message": "Статус обновлен"}
 
 UPLOAD_DIR = "uploads/completion_photos"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

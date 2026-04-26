@@ -31,7 +31,7 @@ async def update_my_profile(
         current_courier = Depends(get_current_active_courier)
 ):
     """Обновление профиля"""
-    users_col = arango_instance.db.collection("users")
+    users_col = arango_instance.db.collection("Users")
 
     user_doc = users_col.get(current_courier.id)
 
@@ -84,7 +84,7 @@ async def get_courier_orders(
     """
 
     bind_vars = {
-        "courier_id": f"users/{current_user.id}",
+        "courier_id": f"Users/{current_user.id}",
         "search": search
     }
 
