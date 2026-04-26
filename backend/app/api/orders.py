@@ -35,19 +35,7 @@ async def create_new_order(
 ):
     """Создание нового заказа и создание связи Owns"""
     try:
-        client_key = current_user.id
-
         new_order = create_order(order_in, client_key=current_user.id, price=order_in.price)
-
-        created_at_str = new_order.created_at.isoformat() if isinstance(new_order.created_at, datetime) else str(new_order.created_at)
-
-        log_event(
-            event_type="order_created",
-            title=f"Новая заявка на вывоз",
-            description=f"Клиент: {current_user.full_name} • {order_in.waste_type}",
-            related_id=new_order.id,
-            related_type="order",
-        )
 
         return new_order
 
@@ -65,39 +53,17 @@ async def create_new_order(
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
         current_user: UserResponse = Depends(get_current_active_client),
-        status: Optional[str] = Query(None)
+        status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
 ):
-    """Просмотр истории заказов с логированием"""
-    db = arango_instance.db
-    print(f"DEBUG: Запрос истории для пользователя {current_user.id}")
-
-    query = """
-    FOR o IN Orders
-        FILTER o.client_key == @client_key
-        FILTER @status == null OR o.status == @status
-        
-        LET loc = (FOR l IN 1..1 OUTBOUND o At RETURN l)[0]
-        
-        RETURN MERGE(o, { 
-            "id": o._key,
-            "address": loc ? {
-                "full_address": loc.full_address || (loc.address ? loc.address.full_address : "Нет адреса"),
-                "details": loc.details || (loc.address ? loc.address.details : "—")
-            } : null
-        })
-    """
-
-    cursor = db.aql.execute(query, bind_vars={
-        "client_key": current_user.id,
-        "status": status
-    })
-
-    data = list(cursor)
-    print(f"DEBUG: Найдено заказов: {len(data)}")
-    if data:
-        print(f"DEBUG: Пример объекта: {data[0]}")
-
-    return data
+    """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
+    try:
+        orders = get_my_orders(client_key=current_user.id, status_filter=status_m)
+        return orders
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Не удалось загрузить историю заказов: {str(e)}"
+        )
 
 @router.get("/{order_id}", response_model=Order)
 async def get_order_details(order_id: str, current_user=Depends(get_current_active_courier)):
@@ -263,26 +229,26 @@ async def get_my_order_detail(
         order_id: str,
         current_user: UserResponse = Depends(get_current_active_client)
 ):
-    """
-    2.5 Просмотр деталей заказа клиентом
-    """
     try:
         db = arango_instance.db
-
         order_doc = db.collection("Orders").get(order_id)
-
         if not order_doc:
             raise HTTPException(status_code=404, detail="Заказ не найден")
 
         if order_doc.get("client_key") != current_user.id:
-            raise HTTPException(
-                status_code=403,
-                detail="У вас нет доступа к этому заказу"
-            )
+            raise HTTPException(status_code=403, detail="У вас нет доступа к этому заказу")
 
-        order_doc["id"] = order_doc.get("_key")
+        query_addr = """
+        FOR addr IN 1..1 OUTBOUND @order_id At
+            RETURN addr
+        """
+        cursor_addr = db.aql.execute(query_addr, bind_vars={"order_id": f"Orders/{order_id}"})
+        addr_doc = cursor_addr.next() if not cursor_addr.empty() else None
 
-        # Получаем информацию о курьере, если он назначен
+        if addr_doc:
+            order_doc["address"] = addr_doc.get("full_address")
+            order_doc["address_details"] = addr_doc.get("details")
+
         query_courier = """
         FOR courier, edge IN 1..1 INBOUND @order_id Executes
             RETURN {
@@ -293,30 +259,15 @@ async def get_my_order_detail(
                 transport: courier.transport
             }
         """
-
-        cursor = db.aql.execute(query, bind_vars={
-            "order_id": order_id,
-            "client_key": current_user.id
-        })
-
-        order_doc = cursor.next() if not cursor.empty() else None
-
-        if not order_doc:
-            raise HTTPException(status_code=404, detail="Заказ не найден")
-
+        cursor = db.aql.execute(query_courier, bind_vars={"order_id": f"Orders/{order_id}"})
+        courier_info = cursor.next() if not cursor.empty() else None
+        if courier_info:
+            order_doc["courier"] = courier_info
 
         order_doc["id"] = order_doc.get("_key")
-
         for key in ["_id", "_rev", "_key"]:
             order_doc.pop(key, None)
 
         return order_doc
-
-
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Не удалось загрузить детали заказа: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=str(e))

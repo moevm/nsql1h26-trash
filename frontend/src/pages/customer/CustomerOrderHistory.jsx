@@ -125,7 +125,7 @@ const OrderHistory = () => {
                                             <StatusBadge status={order.status} />
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[200px]">
-                                            {order.address?.full_address || "—"}
+                                            {order.address || "—"}
                                         </td>
 
                                         <td className="px-6 py-4">

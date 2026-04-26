@@ -31,13 +31,11 @@ const CreateOrder = () => {
         const orderData = {
             waste_type: wasteType,
             volume: Number(volume),
-            address: {
-                full_address: `${city}, ул. ${street}, д. ${house}`,
-                details: {
-                    entrance: entrance || null,
-                    floor: floor ? Number(floor) : null,
-                    intercom: intercom || null
-                }
+            address: `${city}, ул. ${street}, д. ${house}`,
+            address_details: {
+                entrance: entrance || null,
+                floor: floor ? Number(floor) : null,
+                intercom: intercom || null
             },
             scheduled_at: new Date().toISOString(),
             description: comment,
