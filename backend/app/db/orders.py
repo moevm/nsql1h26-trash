@@ -2,6 +2,7 @@ from datetime import datetime
 from app.db.session import arango_instance
 from app.models.order import OrderCreate, Order, OrderStatus
 
+USERS_COLLECTION = "Users"
 ORDERS_COLLECTION = "Orders"
 EXECUTES_COLLECTION = "Executes"
 OWNS_COLLECTION = "Owns"
@@ -39,7 +40,11 @@ def _ensure_collections():
 
     if not db.has_collection(OWNS_COLLECTION):
         db.create_collection(OWNS_COLLECTION, edge=True)
-        print(f"✅ Создана Edge-коллекция: {OWNS_COLLECTION}")    
+        print(f"✅ Создана Edge-коллекция: {OWNS_COLLECTION}")
+
+    if not db.has_collection("History"):
+        db.create_collection("History", edge=True)
+        print(f"✅ Создана Edge-коллекция: History")
 
 
 def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
@@ -79,7 +84,7 @@ def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
     }
 
     owns_data = {
-        "_from": f"Users/{client_key}",
+        "_from": f"{USERS_COLLECTION}/{client_key}",
         "_to": f"{ORDERS_COLLECTION}/{order_key}",
         "created_at": datetime.now().isoformat(),
         "relation_type": OWNS_COLLECTION
@@ -88,16 +93,16 @@ def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
     try:
         db.collection(AT_COLLECTION).insert(at_data)
     except Exception as e:
-        print(f"[Error] Не удалось создать связь At: {e}")    
+        print(f"[Error] Не удалось создать связь At: {e}")
 
     try:
         db.collection(OWNS_COLLECTION).insert(owns_data)
-        print(f"Создана связь Owns: Users/{client_key} → Orders/{order_key}")
+        print(f"Создана связь Owns: {USERS_COLLECTION}/{client_key} → Orders/{order_key}")
     except Exception as e:
         print(f"[Error] Не удалось создать связь Owns: {e}")
 
     order_data["address"] = order_in.address
-    order_data["address_details"] = order_in.address_details    
+    order_data["address_details"] = order_in.address_details
 
     return Order(**order_data)
 
@@ -167,7 +172,7 @@ def get_my_orders(client_key: str, status_filter: str = None):
     db = arango_instance.db
 
     query = """
-    LET user_id = CONCAT('Users/', @client_key)
+    LET user_id = CONCAT(@users_collection, '/', @client_key)
     
     FOR o IN 1..1 OUTBOUND user_id @@owns_collection
         FILTER @status_filter == null OR o.status == @status_filter
@@ -181,7 +186,7 @@ def get_my_orders(client_key: str, status_filter: str = None):
         RETURN MERGE(o, {
             "id": o._key,
             "address": addr_doc.full_address,
-            "address_details": addr_doc.details
+            "address_details": addr_doc.details,
         })
     """
 
@@ -192,6 +197,7 @@ def get_my_orders(client_key: str, status_filter: str = None):
             "@owns_collection": OWNS_COLLECTION,
             "@at_collection": AT_COLLECTION,
             "status_filter": status_filter,
+            "users_collection": USERS_COLLECTION,
         }
     )
 
@@ -212,5 +218,128 @@ def get_my_orders(client_key: str, status_filter: str = None):
     return raw_orders
 
 
+def get_order_by_id_for_client(order_key: str, client_key: str):
 
-    
+    _ensure_collections()
+    db = arango_instance.db
+
+    query = """
+    FOR o IN @@orders_col
+        FILTER o._key == @order_key
+        
+        LET is_owner = FIRST(
+            FOR u IN 1..1 INBOUND o @@owns_col
+                FILTER u._key == @client_key
+                RETURN true
+        )
+        
+        FILTER is_owner == true
+        
+        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o @@at_col RETURN v)
+        
+        LET courier_info = FIRST(
+            FOR courier IN 1..1 INBOUND o Executes
+                RETURN {
+                    id: courier._key,
+                    full_name: courier.full_name,
+                    phone: courier.phone,
+                    rating: courier.rating,
+                    transport: courier.transport
+                }
+        )
+        
+        RETURN MERGE(o, {
+            "id": o._key,
+            "address": addr_doc.full_address,
+            "address_details": addr_doc.details,
+            "courier": courier_info
+        })
+    """
+
+    cursor = db.aql.execute(
+        query,
+        bind_vars={
+            "order_key": order_key,
+            "client_key": client_key,
+            "@orders_col": ORDERS_COLLECTION,
+            "@owns_col": OWNS_COLLECTION,
+            "@at_col": AT_COLLECTION
+        }
+    )
+
+    return cursor.next() if not cursor.empty() else None
+
+
+def get_order_by_id_for_courier(order_key: str):
+    _ensure_collections()
+    db = arango_instance.db
+
+    query = """
+    FOR o IN @@orders_col
+        FILTER o._key == @order_key
+        
+        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o @@at_col RETURN v)
+        
+        LET client_info = FIRST(
+            FOR user IN 1..1 INBOUND o @@owns_col
+                RETURN {
+                    name: user.full_name OR user.name OR "Неизвестный заказчик",
+                    phone: user.phone
+                }
+        )
+        
+        RETURN MERGE(o, {
+            "id": o._key,
+            "address": addr_doc.full_address,
+            "address_details": addr_doc.details,
+            "client_name": client_info.name
+        })
+    """
+
+    cursor = db.aql.execute(
+        query,
+        bind_vars={
+            "order_key": order_key,
+            "@orders_col": ORDERS_COLLECTION,
+            "@owns_col": OWNS_COLLECTION,
+            "@at_col": AT_COLLECTION
+        }
+    )
+
+    return cursor.next() if not cursor.empty() else None
+
+def get_order_details_for_courier(order_key: str):
+    _ensure_collections() # На всякий случай
+    db = arango_instance.db
+
+    # Получаем документ
+    order_doc = db.collection(ORDERS_COLLECTION).get(order_key)
+    if not order_doc:
+        return None
+
+    order_full_id = f"{ORDERS_COLLECTION}/{order_key}"
+
+    # Поиск владельца (Owns)
+    query_owner = "FOR user IN 1..1 INBOUND @order_id Owns RETURN user"
+    cursor_owner = db.aql.execute(query_owner, bind_vars={"order_id": order_full_id})
+    client = cursor_owner.next() if not cursor_owner.empty() else None
+    order_doc["client_name"] = client.get("name") or client.get("full_name") or "Неизвестный заказчик" if client else "Неизвестный заказчик"
+
+    # Поиск транзакции (History)
+    if db.has_collection("History"):
+        query_tx = "FOR tx IN 1..1 OUTBOUND @order_id History RETURN tx"
+        cursor_tx = db.aql.execute(query_tx, bind_vars={"order_id": order_full_id})
+        order_doc["transaction"] = cursor_tx.next() if not cursor_tx.empty() else None
+    else:
+        order_doc["transaction"] = None
+
+    # Поиск адреса (At)
+    query_addr = "FOR addr IN 1..1 OUTBOUND @order_id At RETURN addr"
+    cursor_addr = db.aql.execute(query_addr, bind_vars={"order_id": order_full_id})
+    addr_doc = cursor_addr.next() if not cursor_addr.empty() else None
+    if addr_doc:
+        order_doc["address"] = addr_doc.get("full_address")
+        order_doc["address_details"] = addr_doc.get("details")
+
+    order_doc["id"] = order_doc.get("_key")
+    return order_doc
