@@ -20,10 +20,13 @@ async def list_available_for_courier(
     """Список всех доступных заказов"""
     return get_available_orders(type_filter=waste_type)
 
+
+
 @router.get("/me")
 async def get_my_profile(current_courier = Depends(get_current_active_courier)):
     """Получение профиля"""
     return current_courier
+
 
 @router.patch("/me")
 async def update_my_profile(
@@ -59,6 +62,7 @@ async def update_my_profile(
     users_col.update({"_key": current_courier.id, **update_data})
 
     return {"message": "Профиль успешно обновлен"}
+
 
 @router.get("/my-orders")
 async def get_courier_orders(

@@ -34,3 +34,11 @@ class ProfileUpdateCourier(BaseModel):
     phone: str
     email: str
     transport: str
+
+
+class ProfileUpdateCustomer(BaseModel):
+    firstName: str
+    lastName: str
+    phone: str
+    email: str
+    address: str

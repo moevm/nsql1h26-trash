@@ -1,6 +1,31 @@
 from app.db.session import arango_instance
+from fastapi import HTTPException, status
+from app.db.orders import USERS_COLLECTION
 
-USERS_COLLECTION = "Users"
+def update_user_profile_in_db(user_id: str, update_data: dict):
+    db = arango_instance.db
+    users_col = db.collection(USERS_COLLECTION)
+
+    filtered_data = {k: v for k, v in update_data.items() if v is not None}
+    
+    if not filtered_data:
+        return
+    try:
+        if not user_id:
+            raise ValueError("user_id is empty")
+            
+        # Обновляем документ по ключу
+        users_col.update({
+            "_key": str(user_id), 
+            **filtered_data
+        })
+        print(f"DEBUG: Успешно обновили юзера {user_id}")
+    except Exception as e:
+        print(f"ERROR: Ошибка обновления в Arango: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка базы данных: {str(e)}"
+        )
 
 
 def ensure_users_collection():
