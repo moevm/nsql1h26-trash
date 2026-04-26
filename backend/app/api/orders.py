@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from app.models.order import OrderCreate, Order, StatusUpdate
-from app.db.orders import create_order, get_my_orders, get_order_by_id_for_client, get_order_details_for_courier
+from app.db.orders import create_order, get_my_orders, get_order_by_id_for_client
 from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
@@ -51,8 +51,8 @@ async def create_new_order(
 
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
-        current_user: UserResponse = Depends(get_current_active_client),
-        status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+    current_user: UserResponse = Depends(get_current_active_client),
+    status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
 ):
     """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
     try:
@@ -71,6 +71,32 @@ async def get_order_details(order_id: str, current_user=Depends(get_current_acti
     if not order_doc:
         raise HTTPException(status_code=404, detail="Заказ не найден")
 
+    print(f"DEBUG: Заказ найден: {order_doc['_key']}")
+
+    # Поиск владельца
+    query = "FOR user, edge IN 1..1 INBOUND @order_id Owns RETURN user"
+    bind_vars = {"order_id": f"orders/{order_id}"}
+
+    print(f"DEBUG: Запускаю AQL с ID: {bind_vars['order_id']}")
+    cursor = db.aql.execute(query, bind_vars=bind_vars)
+    client = cursor.next() if not cursor.empty() else None
+
+    print(f"DEBUG: Владелец найден: {client}")
+
+    if client:
+        order_doc["client_name"] = client.get("name") or client.get("full_name") or "Неизвестный заказчик"
+    else:
+        order_doc["client_name"] = "Неизвестный заказчик"
+
+    query = """
+    FOR tx, edge IN 1..1 OUTBOUND @order_id History
+        RETURN tx
+    """
+    cursor = db.aql.execute(query, bind_vars={"order_id": f"orders/{order_id}"})
+    tx = cursor.next() if not cursor.empty() else None
+    order_doc["transaction"] = tx
+
+    print(f"DEBUG: [API] Объект перед отправкой: {order_doc}")
     return order_doc
 
 @router.put("/{order_id}/status")
@@ -165,11 +191,11 @@ async def upload_completion_photo(
 
 @router.get("/my/{order_id}", response_model=Order)
 async def get_my_order_detail(
-        order_id: str,
-        current_user: UserResponse = Depends(get_current_active_client)
+    order_id: str,
+    current_user: UserResponse = Depends(get_current_active_client)
 ):
     order_data = get_order_by_id_for_client(
-        order_key=order_id,
+        order_key=order_id, 
         client_key=current_user.id
     )
 
@@ -177,3 +203,4 @@ async def get_my_order_detail(
         raise HTTPException(status_code=404, detail="Заказ не найден")
 
     return order_data
+
