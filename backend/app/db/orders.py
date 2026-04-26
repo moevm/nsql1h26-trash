@@ -2,6 +2,7 @@ from datetime import datetime
 from app.db.session import arango_instance
 from app.models.order import OrderCreate, Order, OrderStatus
 
+USERS_COLLECTION = "Users"
 ORDERS_COLLECTION = "Orders"
 EXECUTES_COLLECTION = "Executes"
 OWNS_COLLECTION = "Owns"
@@ -79,7 +80,7 @@ def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
     }
 
     owns_data = {
-        "_from": f"Users/{client_key}",
+        "_from": f"{USERS_COLLECTION}/{client_key}",
         "_to": f"{ORDERS_COLLECTION}/{order_key}",
         "created_at": datetime.now().isoformat(),
         "relation_type": OWNS_COLLECTION
@@ -92,7 +93,7 @@ def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
 
     try:
         db.collection(OWNS_COLLECTION).insert(owns_data)
-        print(f"Создана связь Owns: Users/{client_key} → Orders/{order_key}")
+        print(f"Создана связь Owns: {USERS_COLLECTION}/{client_key} → Orders/{order_key}")
     except Exception as e:
         print(f"[Error] Не удалось создать связь Owns: {e}")
 
@@ -167,7 +168,7 @@ def get_my_orders(client_key: str, status_filter: str = None):
     db = arango_instance.db
 
     query = """
-    LET user_id = CONCAT('Users/', @client_key)
+    LET user_id = CONCAT(@users_collection, '/', @client_key)
     
     FOR o IN 1..1 OUTBOUND user_id @@owns_collection
         FILTER @status_filter == null OR o.status == @status_filter
@@ -181,7 +182,7 @@ def get_my_orders(client_key: str, status_filter: str = None):
         RETURN MERGE(o, {
             "id": o._key,
             "address": addr_doc.full_address,
-            "address_details": addr_doc.details
+            "address_details": addr_doc.details,
         })
     """
 
@@ -192,6 +193,7 @@ def get_my_orders(client_key: str, status_filter: str = None):
             "@owns_collection": OWNS_COLLECTION,
             "@at_collection": AT_COLLECTION,
             "status_filter": status_filter,
+            "users_collection": USERS_COLLECTION,
         }
     )
 
@@ -210,6 +212,60 @@ def get_my_orders(client_key: str, status_filter: str = None):
         })
 
     return raw_orders
+
+
+def get_order_by_id_for_client(order_key: str, client_key: str):
+
+    _ensure_collections()
+    db = arango_instance.db
+
+    query = """
+    FOR o IN @@orders_col
+        FILTER o._key == @order_key
+        
+        LET is_owner = FIRST(
+            FOR u IN 1..1 INBOUND o @@owns_col
+                FILTER u._key == @client_key
+                RETURN true
+        )
+        
+        FILTER is_owner == true
+        
+        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o @@at_col RETURN v)
+        
+        LET courier_info = FIRST(
+            FOR courier IN 1..1 INBOUND o Executes
+                RETURN {
+                    id: courier._key,
+                    full_name: courier.full_name,
+                    phone: courier.phone,
+                    rating: courier.rating,
+                    transport: courier.transport
+                }
+        )
+        
+        RETURN MERGE(o, {
+            "id": o._key,
+            "address": addr_doc.full_address,
+            "address_details": addr_doc.details,
+            "courier": courier_info
+        })
+    """
+
+    cursor = db.aql.execute(
+        query,
+        bind_vars={
+            "order_key": order_key,
+            "client_key": client_key,
+            "@orders_col": ORDERS_COLLECTION,
+            "@owns_col": OWNS_COLLECTION,
+            "@at_col": AT_COLLECTION
+        }
+    )
+    
+    return cursor.next() if not cursor.empty() else None
+
+
 
 
 
