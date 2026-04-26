@@ -52,8 +52,8 @@ async def create_new_order(
 
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
-        current_user: UserResponse = Depends(get_current_active_client),
-        status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+    current_user: UserResponse = Depends(get_current_active_client),
+    status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
 ):
     """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
     try:

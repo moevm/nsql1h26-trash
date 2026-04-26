@@ -4,6 +4,12 @@ from app.models.order import OrderCreate, Order, OrderStatus
 
 ORDERS_COLLECTION = "Orders"
 EXECUTES_COLLECTION = "Executes"
+OWNS_COLLECTION = "Owns"
+
+ADDRESSES_COLLECTION = 'Addresses'
+AT_COLLECTION = "At"
+
+
 
 ORDER_STYLES = {
     "Бытовой мусор": {"icon": "delete_forever", "color": "text-red-500", "bg": "bg-red-50"},
@@ -100,9 +106,14 @@ def get_available_orders(type_filter: str = None):
             FOR v, e IN 1..1 INBOUND o @@executes 
             RETURN e
         ) > 0
-        
         FILTER !is_taken
-        RETURN o
+
+        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o @@at RETURN v)
+
+        RETURN MERGE(o, {
+            address: addr_doc.full_address,
+            address_details: addr_doc.details
+        })
     """
 
     cursor = db.aql.execute(
@@ -110,7 +121,8 @@ def get_available_orders(type_filter: str = None):
         bind_vars={
             "filter": type_filter,
             "@orders": ORDERS_COLLECTION,
-            "@executes": EXECUTES_COLLECTION
+            "@executes": EXECUTES_COLLECTION,
+            "@at": AT_COLLECTION,
         }
     )
 
@@ -141,8 +153,9 @@ def get_my_orders(client_key: str, status_filter: str = None):
     db = arango_instance.db
 
     query = """
-    FOR o IN @@orders
-        FILTER o.client_key == @client_key
+    LET user_id = CONCAT('Users/', @client_key)
+    
+    FOR o IN 1..1 OUTBOUND user_id @@owns_collection
         FILTER @status_filter == null OR o.status == @status_filter
         
         // Получаем адрес через ребро At
