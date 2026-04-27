@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class CustomerRegisterRequest(BaseModel):
@@ -16,6 +17,7 @@ class UserResponse(BaseModel):
     email: str
     phone: str
     role: str
+    address: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -42,3 +44,8 @@ class ProfileUpdateCustomer(BaseModel):
     phone: str
     email: str
     address: str
+
+class CourierResponse(UserResponse):
+    transport: Optional[str] = None
+    class Config:
+        from_attributes = True

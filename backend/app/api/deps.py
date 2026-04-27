@@ -4,7 +4,7 @@ from app.db.session import arango_instance
 from app.db.orders import USERS_COLLECTION
 from jose import JWTError, jwt
 from app.core.config import settings
-from app.models.user import UserResponse
+from app.models.user import UserResponse, CourierResponse
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -25,21 +25,33 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
         db = arango_instance.db
         user_doc = db.collection(USERS_COLLECTION).get(user_id)
+        role = user_doc.get("role", "customer")
 
         if not user_doc:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Пользователь не найден в базе"
             )
 
         print("=== PAYLOAD FROM TOKEN ===")
-        
+
+        if role == "courier":
+            return CourierResponse(
+                id=user_doc["_key"],
+                full_name=user_doc.get("full_name", "Unknown"),
+                email=user_doc.get("email", ""),
+                phone=user_doc.get("phone", ""),
+                role=role,
+                transport=user_doc.get("transport")
+            )
+
         return UserResponse(
             id=user_doc["_key"],
             full_name=user_doc.get("full_name", "Unknown"),
             email=user_doc.get("email", ""),
             phone=user_doc.get("phone", ""),
-            role=user_doc.get("role", "customer")
+            role=user_doc.get("role", "customer"),
+            address=user_doc.get("address", "")
         )
         
 
