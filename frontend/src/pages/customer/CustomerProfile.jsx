@@ -1,9 +1,89 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SidebarCustomer from './SidebarCustomer.jsx';
+import { useAuth } from '../../AuthContext.jsx';
 
 const CustomerProfile = () => {
     const navigate = useNavigate();
+    const { user, updateUser } = useAuth();
+    console.log("Данные пользователя из контекста:", user);
+    const [saving, setSaving] = useState(false);
+
+    const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
+        phone: '',
+        email: '',
+        address: ''
+    });
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/api/v1/client/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                setFormData({
+                    firstName: data.full_name?.split(' ')[0] || '',
+                    lastName: data.full_name?.split(' ')[1] || '',
+                    phone: data.phone || '',
+                    email: data.email || '',
+                    address: data.address || ''
+                });
+
+                updateUser(data);
+            } catch (error) {
+                console.error("Ошибка загрузки профиля:", error);
+            }
+        };
+
+        fetchProfile();
+    }, []);
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+
+        const dataToSave = {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            phone: formData.phone,
+            email: formData.email,
+            address: formData.address
+        };
+
+        try {
+            const res = await fetch('/api/v1/client/me', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify(dataToSave)
+            });
+
+            if (res.ok) {
+                updateUser({
+                    full_name: `${formData.firstName} ${formData.lastName}`,
+                    phone: formData.phone,
+                    email: formData.email,
+                    address: formData.address
+                });
+                alert("Профиль успешно обновлен!");
+            } else {
+                const err = await res.json();
+                alert(err.detail || "Ошибка при сохранении");
+            }
+        } catch (err) {
+            console.error("Ошибка при сохранении:", err);
+            alert("Произошла ошибка при сохранении профиля");
+        } finally {
+            setSaving(false);
+        }
+    };
     return (
         <div className="flex min-h-screen w-full bg-[#f8fcf8] font-display text-[#0d1b0d] antialiased">
             <SidebarCustomer activePage="customer-profile" />
@@ -24,7 +104,7 @@ const CustomerProfile = () => {
                         </div>
                         <div className="flex items-center gap-3 border-l border-slate-100 pl-6">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-bold text-[#0d1b0d] leading-tight">Алексей П.</p>
+                                <p className="text-sm font-bold text-[#0d1b0d] leading-tight">{user?.full_name || "Пользователь"}</p>
                                 <p className="text-[10px] font-bold text-[#586458] uppercase tracking-tighter">Частный клиент</p>
                             </div>
                             <div className="size-10 rounded-full bg-slate-200 border-2 border-white shadow-sm"
@@ -57,23 +137,42 @@ const CustomerProfile = () => {
                             {/* Форма личных данных */}
                             <form className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InputGroup label="Имя" defaultValue="Алексей" />
-                                    <InputGroup label="Фамилия" defaultValue="Петров" />
+                                    <InputGroup
+                                        label="Имя"
+                                        value={formData.firstName}
+                                        onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                                    />
+                                    <InputGroup
+                                        label="Фамилия"
+                                        value={formData.lastName}
+                                        onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InputGroup label="Номер телефона" type="tel" defaultValue="+7 (912) 345-67-89" />
-                                    <InputGroup label="Электронная почта" type="email" defaultValue="alex.petrov@example.com" />
+                                    <InputGroup
+                                        label="Номер телефона"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                                    />
+                                    <InputGroup
+                                        label="Электронная почта"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                    />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-[#586458] ml-1">Адрес проживания</label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#a0aead]">location_on</span>
-                                        <input
-                                            className="w-full rounded-xl border border-[#e7f3e7] bg-[#f8fcf8] pl-11 pr-4 py-3.5 outline-none focus:border-[#42f042] focus:ring-1 focus:ring-[#42f042] transition-all text-[#0d1b0d]"
-                                            defaultValue="ул. Ленина, д. 45, кв. 12"
-                                        />
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#a0aead]">location_on</span>
+                                            <InputGroup
+                                                label="Адрес проживания"
+                                                value={formData.address}
+                                                onChange={(e) => setFormData({...formData, address: e.target.value})}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -89,6 +188,7 @@ const CustomerProfile = () => {
                                     </button>
                                     <button
                                         type="submit"
+                                        onClick={handleSave}
                                         className="w-full sm:w-auto bg-[#42f042] hover:bg-[#36c936] text-[#0d1b0d] font-bold py-3.5 px-10 rounded-xl shadow-lg shadow-[#42f042]/20 transition-all hover:-translate-y-0.5"
                                     >
                                         Сохранить изменения
@@ -104,14 +204,27 @@ const CustomerProfile = () => {
 };
 
 // Компонент поля ввода
-const InputGroup = ({ label, type = "text", defaultValue }) => (
-    <div className="space-y-2">
-        <label className="block text-sm font-medium text-[#586458] ml-1">{label}</label>
-        <input
-            type={type}
-            defaultValue={defaultValue}
-            className="w-full rounded-xl border border-[#e7f3e7] bg-[#f8fcf8] px-4 py-3.5 outline-none focus:border-[#42f042] focus:ring-1 focus:ring-[#42f042] transition-all text-[#0d1b0d] placeholder-[#a0aead]"
-        />
+const InputGroup = ({ label, type = "text", value, onChange, icon }) => (
+    <div className="space-y-2 relative">
+        <label className="block text-sm font-medium text-[#586458] ml-1">
+            {label}
+        </label>
+
+        <div className="relative">
+            {icon && (
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#a0aead] z-10">
+                    {icon}
+                </span>
+            )}
+
+            <input
+                type={type}
+                value={value}
+                onChange={onChange}
+                className={`w-full rounded-xl border border-[#e7f3e7] bg-[#f8fcf8] py-3.5 outline-none focus:border-[#42f042] transition-all 
+                           ${icon ? 'pl-12 pr-4' : 'px-4'}`} // Динамический отступ: pl-12 если есть иконка
+            />
+        </div>
     </div>
 );
 

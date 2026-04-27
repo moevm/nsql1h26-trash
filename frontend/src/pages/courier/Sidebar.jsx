@@ -58,7 +58,6 @@ const Sidebar = ({ activePage }) => {
                     <span className="text-sm font-bold truncate">
                         {user ? user.full_name : "Гость"}
                     </span>
-                        <span className="sidebar-rating">Рейтинг 5.0 ★</span>
                     </div>
                 </div>
                 <button

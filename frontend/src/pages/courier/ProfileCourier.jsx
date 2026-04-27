@@ -7,26 +7,53 @@ const ProfileCourier = () => {
     const { user, updateUser } = useAuth();
     const navigate = useNavigate();
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [balance, setBalance] = useState(0);
 
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
         phone: '',
         email: '',
-        transport: 'foot'
+        transport: ''
     });
     useEffect(() => {
-        if (user) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setFormData({
-                firstName: user.name?.split(' ')[0] || '',
-                lastName: user.name?.split(' ')[1] || '',
-                phone: user.phone || '',
-                email: user.email || '',
-                transport: user.transport || 'foot'
-            });
-        }
-    }, [user]);
+        const fetchProfile = async () => {
+            try {
+                const [profileRes, balanceRes] = await Promise.all([
+                    fetch('/api/v1/courier/me', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                    }),
+                    fetch('/api/v1/courier/balance', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                    })
+                ]);
+
+                if (profileRes.ok) {
+                    const data = await profileRes.json();
+                    const [first = '', ...rest] = data.full_name.split(' ');
+                    setFormData({
+                        firstName: first,
+                        lastName: rest.join(' '),
+                        phone: data.phone || '',
+                        email: data.email || '',
+                        transport: data.transport || 'foot'
+                    });
+                }
+
+                if (balanceRes.ok) {
+                    const balanceData = await balanceRes.json();
+                    setBalance(balanceData.balance || 0);
+                }
+            } catch (err) {
+                console.error("Ошибка загрузки:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -77,7 +104,7 @@ const ProfileCourier = () => {
                         <span className="icon-base text-primary text-xl">account_balance_wallet</span>
                         <div className="flex flex-col items-end leading-none">
                             <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider">Баланс</span>
-                            <span className="font-bold text-base">5 420 ₽</span>
+                            <span className="font-bold text-base">{balance.toLocaleString('ru-RU')} ₽</span>
                         </div>
                     </div>
                 </header>
