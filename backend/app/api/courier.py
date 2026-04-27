@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from app.api.deps import get_current_active_client
 from app.models.user import UserResponse, ProfileUpdateCourier, CourierResponse
-from app.db.orders import get_available_orders, get_courier_orders_service, AT_COLLECTION
+from app.db.orders import get_available_orders, get_courier_orders_service, AT_COLLECTION, USERS_COLLECTION
 from app.api.deps import get_current_active_courier
 from app.db.session import arango_instance
 
@@ -76,6 +76,6 @@ async def get_courier_orders(
 @router.get("/balance")
 async def get_courier_balance(current_user: UserResponse = Depends(get_current_active_courier)):
     db = arango_instance.db
-    user_doc = db.collection("Users").get(current_user.id)
+    user_doc = db.collection(USERS_COLLECTION).get(current_user.id)
     balance = user_doc.get("balance", 0.0)
     return {"balance": balance}

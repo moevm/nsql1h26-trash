@@ -396,7 +396,7 @@ def get_courier_orders_service(courier_id: str, search: str = None):
     """
 
     bind_vars = {
-        "courier_id": f"Users/{courier_id}",
+        "courier_id": f"{USERS_COLLECTION}/{courier_id}",
         "search": search,
         "@at": AT_COLLECTION
     }
