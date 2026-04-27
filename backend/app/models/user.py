@@ -44,8 +44,3 @@ class ProfileUpdateCustomer(BaseModel):
     phone: str
     email: str
     address: str
-
-class CourierResponse(UserResponse):
-    transport: Optional[str] = None
-    class Config:
-        from_attributes = True

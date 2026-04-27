@@ -1,26 +1,17 @@
 from contextlib import asynccontextmanager
-print(2)
 from fastapi import FastAPI
-print(4)
 from fastapi.middleware.cors import CORSMiddleware
-print(6)
 from app.core.config import settings
-print(8)
 from app.db.session import arango_instance
-print(10)
 from app.db.users import ensure_users_collection
-print(12)
 from app.db.orders import get_available_orders
-print(14)
 from app.api.hello import router as hello_router
-print(16)
 from app.api.auth import router as auth_router
-print(18)
 from app.api.health import router as health_router
-print(20)
 from app.services.auth_service import ensure_default_debug_users
 from app.api.courier import router as courier_router
 from app.api.orders import router as orders_router
+from app.api.clients import router as client_router
 from app.api.admin import router as admin_router
 from app.api.deps import get_current_active_client
 from app.db.events import ensure_events_collection
@@ -111,5 +102,6 @@ app.include_router(hello_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1/auth")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(courier_router, prefix="/api/v1")
+app.include_router(client_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
