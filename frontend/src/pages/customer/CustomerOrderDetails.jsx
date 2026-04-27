@@ -112,10 +112,16 @@ const CustomerOrderDetails = () => {
                                 ) : (
                                     <>
                                         <div className="size-24 rounded-full bg-slate-100 mx-auto mb-4 border-4 border-[#f8fcf8] shadow-sm overflow-hidden">
-                                            <img src="https://ui-avatars.com/api/?name=Alexey+Petrov&background=42f042&color=0d1b0d" alt="courier" />
+                                            <img
+                                                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(order.courier?.full_name || 'Курьер')}&background=42f042&color=0d1b0d`}
+                                                alt="courier"
+                                            />
                                         </div>
-                                        <h3 className="text-xl font-bold mb-1">Алексей Петров</h3>
-                                        <p className="text-sm text-[#586458] mb-4">Газель (А 777 ББ 177)</p>
+                                        <h3 className="text-xl font-bold mb-1">{order.courier?.full_name || 'Не назначен'}</h3>
+                                        <p className="text-sm text-[#586458] mb-4">
+                                            {order.courier?.transport || 'Транспорт не указан'}
+                                            {order.courier?.phone ? ` • ${order.courier.phone}` : ''}
+                                        </p>
                                     </>
                                 )}
                             </section>

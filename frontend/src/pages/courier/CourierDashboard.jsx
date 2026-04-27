@@ -8,6 +8,26 @@ const CourierDashboard = () => {
     const location = useLocation();
     const userName = location.state?.userName || "Алексей К.";
     const navigate = useNavigate();
+    const [balance, setBalance] = useState(0);
+
+    const fetchBalance = async () => {
+        try {
+            const response = await fetch('/api/v1/courier/balance', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setBalance(data.balance);
+            }
+        } catch (error) {
+            console.error("Ошибка загрузки баланса:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchOrders(activeTab);
+        fetchBalance();
+    }, [activeTab]);
 
     const fetchOrders = async (tab) => {
         const typeMap = {
@@ -52,7 +72,7 @@ const CourierDashboard = () => {
                         <span className="icon-base text-primary text-2xl">account_balance_wallet</span>
                         <div className="flex flex-col items-end">
                             <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest leading-none mb-1">Баланс</span>
-                            <span className="font-black text-xl leading-none">12 500 ₽</span>
+                            <span className="font-black text-xl leading-none">{balance.toLocaleString()} ₽</span>
                         </div>
                     </div>
                 </header>

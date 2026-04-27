@@ -33,7 +33,7 @@ const CourierOrdersHistory = () => {
         fetchOrders();
     }, []);
 
-
+    console.log("Данные заказов:", orders);
     return (
         <div className="flex h-screen bg-background-light overflow-hidden text-text-main">
             <Sidebar activePage="my-orders" />

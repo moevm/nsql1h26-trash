@@ -2,8 +2,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from app.api.deps import get_current_active_client
-from app.models.user import UserResponse, ProfileUpdateCourier
-from app.db.orders import get_available_orders
+from app.models.user import UserResponse, ProfileUpdateCourier, CourierResponse
+from app.db.orders import get_available_orders, get_courier_orders_service, AT_COLLECTION, USERS_COLLECTION
 from app.api.deps import get_current_active_courier
 from app.db.session import arango_instance
 
@@ -22,9 +22,10 @@ async def list_available_for_courier(
 
 
 
-@router.get("/me")
+@router.get("/me", response_model=CourierResponse)
 async def get_my_profile(current_courier = Depends(get_current_active_courier)):
     """Получение профиля"""
+    print(f"DEBUG: Объект курьера из БД: {current_courier}")
     return current_courier
 
 
@@ -69,28 +70,12 @@ async def get_courier_orders(
         search: Optional[str] = Query(None),
         current_user: UserResponse = Depends(get_current_active_courier)
 ):
+    orders = get_courier_orders_service(current_user.id, search)
+    return orders
+
+@router.get("/balance")
+async def get_courier_balance(current_user: UserResponse = Depends(get_current_active_courier)):
     db = arango_instance.db
-
-    query = """
-    FOR edge IN Executes
-        FILTER edge._from == @courier_id
-        LET order = DOCUMENT(edge._to)
-        
-        // Фильтр поиска
-        FILTER @search == null OR (
-            CONTAINS(LOWER(order._key), LOWER(@search)) OR
-            CONTAINS(LOWER(order.address), LOWER(@search)) OR
-            CONTAINS(LOWER(TO_STRING(order.price)), LOWER(@search))
-        )
-        
-        SORT order.created_at DESC
-        RETURN MERGE(order, { "id": order._key })
-    """
-
-    bind_vars = {
-        "courier_id": f"Users/{current_user.id}",
-        "search": search
-    }
-
-    cursor = db.aql.execute(query, bind_vars=bind_vars)
-    return list(cursor)
+    user_doc = db.collection(USERS_COLLECTION).get(current_user.id)
+    balance = user_doc.get("balance", 0.0)
+    return {"balance": balance}

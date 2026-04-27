@@ -177,7 +177,7 @@ def update_order_status_by_courier(order_key: str, new_status: str, courier_key:
     order = db.collection(ORDERS_COLLECTION).get(order_key)
     if not order:
         return {"error": "not_found"}
-    
+
     now = datetime.now(timezone.utc).isoformat()
 
     if new_status == "active":
@@ -190,19 +190,32 @@ def update_order_status_by_courier(order_key: str, new_status: str, courier_key:
     elif new_status == "done":
         if not order.get("completion_photo"):
             return {"error": "no_photo"}
-        
+
+        price = float(order.get("price", 0.0))
+
         tx_meta = db.collection(TRANSACTION_COLLECTION).insert({
-            "amount": order.get("price", 0.0),
+            "amount": price,
             "type": "order_payout",
             "status": "success",
-            "timestamp": now
+            "timestamp": now,
+            "courier_id": str(courier_key)
         })
-        
+
         db.collection(HISTORY_COLLECTION).insert({
             "_from": f"{ORDERS_COLLECTION}/{order_key}",
             "_to": f"{TRANSACTION_COLLECTION}/{tx_meta['_key']}",
             "created_at": now
         })
+
+        user_col = db.collection(USERS_COLLECTION)
+        user_doc = user_col.get(courier_key)
+
+        if user_doc:
+            current_balance = user_doc.get("balance", 0.0)
+            user_col.update({
+                "_key": courier_key,
+                "balance": current_balance + price
+            })
 
     db.collection(ORDERS_COLLECTION).update({"_key": order_key, "status": new_status})
     return {"success": True}
@@ -356,3 +369,36 @@ def get_order_details_for_courier(order_key: str):
     )
 
     return cursor.next() if not cursor.empty() else None
+
+def get_courier_orders_service(courier_id: str, search: str = None):
+    db = arango_instance.db
+
+    query = """
+    FOR edge IN Executes
+        FILTER edge._from == @courier_id
+        LET order = DOCUMENT(edge._to)
+        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND order @@at RETURN v)
+        
+        LET final_order = MERGE(order, { 
+            "id": order._key,
+            "address": addr_doc.full_address,
+            "address_details": addr_doc.details
+        })
+
+        FILTER @search == null OR (
+            CONTAINS(LOWER(final_order.id), LOWER(@search)) OR
+            CONTAINS(LOWER(final_order.address), LOWER(@search)) OR
+            CONTAINS(LOWER(TO_STRING(final_order.price)), LOWER(@search))
+        )
+        
+        SORT final_order.created_at DESC
+        RETURN final_order
+    """
+
+    bind_vars = {
+        "courier_id": f"{USERS_COLLECTION}/{courier_id}",
+        "search": search,
+        "@at": AT_COLLECTION
+    }
+
+    return list(db.aql.execute(query, bind_vars=bind_vars))
