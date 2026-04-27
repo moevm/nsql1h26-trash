@@ -2,6 +2,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 
+
 OrderStatus = Literal["searching", "active", "done"]
 class AddressDetails(BaseModel):
     entrance: Optional[str] = Field(None, description="Подъезд")
@@ -37,6 +38,18 @@ class Transaction(BaseModel):
     status: str
     timestamp: str
 
+
+class CourierShortInfo(BaseModel):
+    id: str
+    full_name: str
+    phone: Optional[str] = None
+    rating: float = 0.0
+    transport: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class Order(OrderBase):
     """Полная модель заказа для ответа"""
     id: str = Field(..., alias="_key")
@@ -44,6 +57,7 @@ class Order(OrderBase):
     
     address: Optional[str] = None
     address_details: Optional[AddressDetails] = None
+    courier: Optional[CourierShortInfo] = None
 
     completion_photo: Optional[str] = None
     created_at: Optional[datetime] = None

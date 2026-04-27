@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from app.db.session import arango_instance
-from app.models.order import OrderCreate, Order, OrderStatus
+from app.models.order import OrderCreate, Order
 
 USERS_COLLECTION = "Users"
 ORDERS_COLLECTION = "Orders"
