@@ -9,6 +9,12 @@ const CourierOrdersHistory = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const navigate = useNavigate();
     const userName = location.state?.userName || "Алексей К.";
+    const wasteColors = {
+        'Мебель': 'bg-red-400',
+        'Строительный': 'bg-amber-500',
+        'Бытовой': 'bg-green-500',
+        'default': 'bg-blue-400'
+    };
     const fetchOrders = async (query = '') => {
         setLoading(true);
         try {
@@ -86,16 +92,20 @@ const CourierOrdersHistory = () => {
                                             </td>
                                             <td className="table-cell">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                                                    <span className={`w-2 h-2 rounded-full ${wasteColors[order.waste_type] || wasteColors['default']}`}></span>
                                                     <span className="font-medium">{order.waste_type}</span>
                                                 </div>
                                             </td>
                                             <td className="table-cell text-slate-600 truncate max-w-xs">{order.address}</td>
                                             <td className="table-cell text-right font-bold">{order.price} ₽</td>
                                             <td className="table-cell text-center">
-                <span className={order.status === 'done' ? "status-badge-success" : "status-badge-warning"}>
-                    {order.status === 'done' ? 'Выполнен' : 'В работе'}
-                </span>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                                    order.status === 'done'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-yellow-100 text-yellow-800'
+                                                }`}>
+                                                    {order.status === 'done' ? 'Выполнен' : 'В работе'}
+                                                </span>
                                             </td>
                                         </tr>
                                     ))}

@@ -50,6 +50,10 @@ def _ensure_collections():
         db.create_collection(HISTORY_COLLECTION, edge=True)
         print(f"✅ Создана Edge-коллекция: {HISTORY_COLLECTION}")
 
+    if not db.has_collection(TRANSACTION_COLLECTION):
+        db.create_collection(TRANSACTION_COLLECTION)
+        print(f"✅ Создана коллекция: {TRANSACTION_COLLECTION}")
+
 
 def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
     """

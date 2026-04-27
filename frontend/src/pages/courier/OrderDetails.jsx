@@ -73,10 +73,8 @@ const OrderDetails = () => {
             });
 
             if (res.ok) {
-                // Мгновенно обновляем стейты, чтобы интерфейс перерисовался
                 setStatus(nextStatus);
 
-                // Получаем свежие данные с сервера
                 const updatedRes = await fetch(`/api/v1/orders/${orderId}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
                 });
@@ -106,14 +104,13 @@ const OrderDetails = () => {
                             <span className="text-sm font-medium">Назад</span>
                         </button>
                         <div className="h-6 w-px bg-gray-200"></div>
-                        <h2 className="text-2xl font-bold text-[#0d1b0d]">Детали заказа №{order.id}</h2>
+                        <h2 className="text-2xl font-bold text-[#0d1b0d]">Детали заказа №{order.id || order._key}</h2>
 
                         {/* Статус */}
-                        <span className={`... ${
-                            status === 'searching' ? 'bg-orange-100 text-orange-600' :
-                                status === 'active' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-green-100 text-green-700'
-                        }`}>
+                        <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border 
+                            ${status === 'searching' ? 'bg-orange-50 text-orange-600 border-orange-200' :
+                            status === 'active' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                'bg-green-50 text-green-600 border-green-200'}`}>
                             {status === 'searching' ? 'Ожидает' : status === 'active' ? 'В работе' : 'Выполнен'}
                         </span>
                     </div>
