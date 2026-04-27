@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.session import arango_instance
-from app.models.order import OrderCreate, Order, OrderStatus
+from app.models.order import OrderCreate, Order
 
 USERS_COLLECTION = "Users"
 ORDERS_COLLECTION = "Orders"
@@ -9,6 +9,10 @@ OWNS_COLLECTION = "Owns"
 
 ADDRESSES_COLLECTION = 'Addresses'
 AT_COLLECTION = "At"
+
+HISTORY_COLLECTION = "History"
+
+TRANSACTION_COLLECTION = "Transactions"
 
 
 
@@ -42,9 +46,9 @@ def _ensure_collections():
         db.create_collection(OWNS_COLLECTION, edge=True)
         print(f"✅ Создана Edge-коллекция: {OWNS_COLLECTION}")
 
-    if not db.has_collection("History"):
-        db.create_collection("History", edge=True)
-        print(f"✅ Создана Edge-коллекция: History")
+    if not db.has_collection(HISTORY_COLLECTION):
+        db.create_collection(HISTORY_COLLECTION, edge=True)
+        print(f"✅ Создана Edge-коллекция: {HISTORY_COLLECTION}")
 
 
 def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
@@ -163,6 +167,60 @@ def get_available_orders(type_filter: str = None):
     return raw_orders
 
 
+def update_order_status_by_courier(order_key: str, new_status: str, courier_key: str):
+    """
+    Изменение статуса заказа
+    """
+    _ensure_collections()
+    db = arango_instance.db
+
+    order = db.collection(ORDERS_COLLECTION).get(order_key)
+    if not order:
+        return {"error": "not_found"}
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    if new_status == "active":
+        db.collection(EXECUTES_COLLECTION).insert({
+            "_from": f"{USERS_COLLECTION}/{courier_key}",
+            "_to": f"{ORDERS_COLLECTION}/{order_key}",
+            "started_at": now
+        })
+
+    elif new_status == "done":
+        if not order.get("completion_photo"):
+            return {"error": "no_photo"}
+
+        price = float(order.get("price", 0.0))
+
+        tx_meta = db.collection(TRANSACTION_COLLECTION).insert({
+            "amount": price,
+            "type": "order_payout",
+            "status": "success",
+            "timestamp": now,
+            "courier_id": str(courier_key)
+        })
+
+        db.collection(HISTORY_COLLECTION).insert({
+            "_from": f"{ORDERS_COLLECTION}/{order_key}",
+            "_to": f"{TRANSACTION_COLLECTION}/{tx_meta['_key']}",
+            "created_at": now
+        })
+
+        user_col = db.collection(USERS_COLLECTION)
+        user_doc = user_col.get(courier_key)
+
+        if user_doc:
+            current_balance = user_doc.get("balance", 0.0)
+            user_col.update({
+                "_key": courier_key,
+                "balance": current_balance + price
+            })
+
+    db.collection(ORDERS_COLLECTION).update({"_key": order_key, "status": new_status})
+    return {"success": True}
+
+
 
 def get_my_orders(client_key: str, status_filter: str = None):
     """
@@ -233,12 +291,12 @@ def get_order_by_id_for_client(order_key: str, client_key: str):
                 RETURN true
         )
         
-        FILTER is_owner == true
+        //FILTER is_owner == true
         
         LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o @@at_col RETURN v)
         
         LET courier_info = FIRST(
-            FOR courier IN 1..1 INBOUND o Executes
+            FOR courier IN 1..1 INBOUND o @@executes_col
                 RETURN {
                     id: courier._key,
                     full_name: courier.full_name,
@@ -263,14 +321,19 @@ def get_order_by_id_for_client(order_key: str, client_key: str):
             "client_key": client_key,
             "@orders_col": ORDERS_COLLECTION,
             "@owns_col": OWNS_COLLECTION,
-            "@at_col": AT_COLLECTION
+            "@at_col": AT_COLLECTION,
+            "@executes_col": EXECUTES_COLLECTION
         }
     )
 
     return cursor.next() if not cursor.empty() else None
 
 
-def get_order_by_id_for_courier(order_key: str):
+
+def get_order_details_for_courier(order_key: str):
+    """
+    Получить полную информацию о заказе для курьера одним запросом.
+    """
     _ensure_collections()
     db = arango_instance.db
 
@@ -278,21 +341,19 @@ def get_order_by_id_for_courier(order_key: str):
     FOR o IN @@orders_col
         FILTER o._key == @order_key
         
-        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o @@at_col RETURN v)
+        LET client = FIRST(FOR u IN 1..1 INBOUND o @@owns_col RETURN u)
         
-        LET client_info = FIRST(
-            FOR user IN 1..1 INBOUND o @@owns_col
-                RETURN {
-                    name: user.full_name OR user.name OR "Неизвестный заказчик",
-                    phone: user.phone
-                }
-        )
+        LET addr = FIRST(FOR a IN 1..1 OUTBOUND o @@at_col RETURN a)
         
+        LET tx = IS_SAME_COLLECTION('History', @@history_col) ? 
+            FIRST(FOR h IN 1..1 OUTBOUND o @@history_col RETURN h) : null
+
         RETURN MERGE(o, {
             "id": o._key,
-            "address": addr_doc.full_address,
-            "address_details": addr_doc.details,
-            "client_name": client_info.name
+            "client_name": client.full_name OR client.name OR "Неизвестный заказчик",
+            "address": addr.full_address,
+            "address_details": addr.details,
+            "transaction": tx
         })
     """
 
@@ -302,44 +363,42 @@ def get_order_by_id_for_courier(order_key: str):
             "order_key": order_key,
             "@orders_col": ORDERS_COLLECTION,
             "@owns_col": OWNS_COLLECTION,
-            "@at_col": AT_COLLECTION
+            "@at_col": AT_COLLECTION,
+            "@history_col": HISTORY_COLLECTION
         }
     )
 
     return cursor.next() if not cursor.empty() else None
 
-def get_order_details_for_courier(order_key: str):
-    _ensure_collections() # На всякий случай
+def get_courier_orders_service(courier_id: str, search: str = None):
     db = arango_instance.db
 
-    # Получаем документ
-    order_doc = db.collection(ORDERS_COLLECTION).get(order_key)
-    if not order_doc:
-        return None
+    query = """
+    FOR edge IN Executes
+        FILTER edge._from == @courier_id
+        LET order = DOCUMENT(edge._to)
+        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND order @@at RETURN v)
+        
+        LET final_order = MERGE(order, { 
+            "id": order._key,
+            "address": addr_doc.full_address,
+            "address_details": addr_doc.details
+        })
 
-    order_full_id = f"{ORDERS_COLLECTION}/{order_key}"
+        FILTER @search == null OR (
+            CONTAINS(LOWER(final_order.id), LOWER(@search)) OR
+            CONTAINS(LOWER(final_order.address), LOWER(@search)) OR
+            CONTAINS(LOWER(TO_STRING(final_order.price)), LOWER(@search))
+        )
+        
+        SORT final_order.created_at DESC
+        RETURN final_order
+    """
 
-    # Поиск владельца (Owns)
-    query_owner = "FOR user IN 1..1 INBOUND @order_id Owns RETURN user"
-    cursor_owner = db.aql.execute(query_owner, bind_vars={"order_id": order_full_id})
-    client = cursor_owner.next() if not cursor_owner.empty() else None
-    order_doc["client_name"] = client.get("name") or client.get("full_name") or "Неизвестный заказчик" if client else "Неизвестный заказчик"
+    bind_vars = {
+        "courier_id": f"Users/{courier_id}",
+        "search": search,
+        "@at": AT_COLLECTION
+    }
 
-    # Поиск транзакции (History)
-    if db.has_collection("History"):
-        query_tx = "FOR tx IN 1..1 OUTBOUND @order_id History RETURN tx"
-        cursor_tx = db.aql.execute(query_tx, bind_vars={"order_id": order_full_id})
-        order_doc["transaction"] = cursor_tx.next() if not cursor_tx.empty() else None
-    else:
-        order_doc["transaction"] = None
-
-    # Поиск адреса (At)
-    query_addr = "FOR addr IN 1..1 OUTBOUND @order_id At RETURN addr"
-    cursor_addr = db.aql.execute(query_addr, bind_vars={"order_id": order_full_id})
-    addr_doc = cursor_addr.next() if not cursor_addr.empty() else None
-    if addr_doc:
-        order_doc["address"] = addr_doc.get("full_address")
-        order_doc["address_details"] = addr_doc.get("details")
-
-    order_doc["id"] = order_doc.get("_key")
-    return order_doc
+    return list(db.aql.execute(query, bind_vars=bind_vars))
