@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.session import arango_instance
 from app.db.users import ensure_users_collection
-from app.db.orders import get_available_orders
+from app.db.orders import get_available_orders, _ensure_collections
 from app.api.hello import router as hello_router
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
@@ -45,6 +45,7 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("Could not connect to ArangoDB")
 
     ensure_users_collection()
+    _ensure_collections()
     get_available_orders()
     ensure_default_debug_users()
     ensure_events_collection()
@@ -69,7 +70,6 @@ def custom_openapi():
         routes=app.routes,
     )
 
-    # Правильная схема Bearer Auth
     openapi_schema["components"]["securitySchemes"] = {
         "BearerAuth": {
             "type": "http",
@@ -79,7 +79,6 @@ def custom_openapi():
         }
     }
 
-    # Применяем схему ко всем защищённым роутерам
     for route in openapi_schema["paths"].values():
         for method in route.values():
             if isinstance(method, dict):
