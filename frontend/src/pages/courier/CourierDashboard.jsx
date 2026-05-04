@@ -9,6 +9,9 @@ const CourierDashboard = () => {
     const userName = location.state?.userName || "Алексей К.";
     const navigate = useNavigate();
     const [balance, setBalance] = useState(0);
+    const [totalOrders, setTotalOrders] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 4;
 
     const fetchBalance = async () => {
         try {
@@ -24,40 +27,45 @@ const CourierDashboard = () => {
         }
     };
 
-    useEffect(() => {
-        fetchOrders(activeTab);
-        fetchBalance();
-    }, [activeTab]);
 
-    const fetchOrders = async (tab) => {
+    const fetchOrders = async (tab, page = 1) => {
         const typeMap = {
             'Бытовой': 'Бытовой',
             'Строительный': 'Строительный',
             'Мебель': 'Мебель'
         };
+        const wasteType = typeMap[tab];
 
-        const typeParam = typeMap[tab] ? `?waste_type=${encodeURIComponent(typeMap[tab])}` : '';
-        const url = `/api/v1/courier/available-orders${typeParam}`;
+        const skip = (page - 1) * itemsPerPage;
+        let url = `/api/v1/courier/available-orders?skip=${skip}&limit=${itemsPerPage}`;
+        if (wasteType) url += `&waste_type=${encodeURIComponent(wasteType)}`;
 
         try {
-            console.log("DEBUG: Отправляю запрос с токеном:", localStorage.getItem('access_token'));
             const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                }
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
             });
-            if (!response.ok) throw new Error('Ошибка сети');
             const data = await response.json();
-            setOrders(data);
+            setOrders(Array.isArray(data.orders) ? data.orders : []);
+            setTotalOrders(data.total || 0);
         } catch (error) {
-            console.error("Не удалось загрузить заказы:", error);
+            console.error("Ошибка:", error);
             setOrders([]);
+            setTotalOrders(0);
         }
     };
 
     useEffect(() => {
-        fetchOrders(activeTab);
+        setCurrentPage(1);
+        fetchOrders(activeTab, 1);
+        fetchBalance();
     }, [activeTab]);
+
+    const handlePageChange = (newPage) => {
+        setCurrentPage(newPage);
+        fetchOrders(activeTab, newPage);
+    };
+
+    const totalPages = Math.ceil(totalOrders / itemsPerPage);
 
     return (
         <div className="flex h-screen bg-background-light overflow-hidden text-text-main">
@@ -144,18 +152,39 @@ const CourierDashboard = () => {
                         ))}
                     </div>
 
-                    {/* Пагинация */}
-                    <div className="mt-12 mb-8 flex justify-center items-center gap-2">
-                        <button className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-text-main">
-                            <span className="icon-base">chevron_left</span>
-                        </button>
-                        <button className="pagin-btn-active">1</button>
-                        <button className="pagin-btn-inactive">2</button>
-                        <button className="pagin-btn-inactive">3</button>
-                        <button className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-text-main">
-                            <span className="icon-base">chevron_right</span>
-                        </button>
-                    </div>
+                    {/* ПАГИНАЦИЯ */}
+                    {totalPages > 1 && (
+                        <div className="mt-12 mb-8 flex justify-center items-center gap-2">
+                            <button
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-text-main disabled:opacity-30"
+                            >
+                                <span className="icon-base">chevron_left</span>
+                            </button>
+
+                            {[...Array(totalPages)].map((_, index) => {
+                                const pageNumber = index + 1;
+                                return (
+                                    <button
+                                        key={pageNumber}
+                                        onClick={() => handlePageChange(pageNumber)}
+                                        className={currentPage === pageNumber ? "pagin-btn-active" : "pagin-btn-inactive"}
+                                    >
+                                        {pageNumber}
+                                    </button>
+                                );
+                            })}
+
+                            <button
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-text-main disabled:opacity-30"
+                            >
+                                <span className="icon-base">chevron_right</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             </main>
         </div>

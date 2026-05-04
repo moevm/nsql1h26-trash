@@ -9,30 +9,41 @@ const CourierOrdersHistory = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const navigate = useNavigate();
     const userName = location.state?.userName || "Алексей К.";
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
     const wasteColors = {
         'Мебель': 'bg-red-400',
         'Строительный': 'bg-amber-500',
         'Бытовой': 'bg-green-500',
         'default': 'bg-blue-400'
     };
-    const fetchOrders = async (query = '') => {
+    const [totalOrders, setTotalOrders] = useState(0);
+    const [sortOrder, setSortOrder] = useState('desc');
+
+    const fetchOrders = async (query = searchQuery, page = 1, sort = sortOrder) => {
+        const token = localStorage.getItem('access_token');
         setLoading(true);
         try {
-            const token = localStorage.getItem('access_token');
-            const url = query
-                ? `/api/v1/courier/my-orders?search=${encodeURIComponent(query)}`
-                : '/api/v1/courier/my-orders';
+            const skip = (page - 1) * itemsPerPage;
+            let url = `/api/v1/courier/my-orders?skip=${skip}&limit=${itemsPerPage}&sort=${sort}`;
+            if (query) url += `&search=${encodeURIComponent(query)}`;
 
-            const response = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await response.json();
-            setOrders(data);
+
+            setOrders(data.orders || []);
+            setTotalOrders(data.total || 0);
         } catch (error) {
-            console.error("Ошибка загрузки заказов:", error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
+    };
+    const toggleSort = () => {
+        const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+        setSortOrder(newOrder);
+        setCurrentPage(1);
+        fetchOrders(searchQuery, 1, newOrder);
     };
 
     useEffect(() => {
@@ -58,7 +69,8 @@ const CourierOrdersHistory = () => {
                             value={searchQuery}
                             onChange={(e) => {
                                 setSearchQuery(e.target.value);
-                                fetchOrders(e.target.value);
+                                setCurrentPage(1);
+                                fetchOrders(e.target.value, 1);
                             }}
                         />
                     </div>
@@ -72,7 +84,17 @@ const CourierOrdersHistory = () => {
                                     <thead>
                                     <tr>
                                         <th className="table-head-cell">ID заказа</th>
-                                        <th className="table-head-cell">Дата</th>
+                                        <th
+                                            className="table-head-cell cursor-pointer hover:text-primary transition-colors"
+                                            onClick={toggleSort}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Дата
+                                                <span className="material-symbols-outlined text-sm">
+                                                    {sortOrder === 'desc' ? 'expand_more' : 'expand_less'}
+                                                </span>
+                                            </div>
+                                        </th>
                                         <th className="table-head-cell">Тип мусора</th>
                                         <th className="table-head-cell">Адрес</th>
                                         <th className="table-head-cell text-right">Награда</th>
@@ -116,13 +138,40 @@ const CourierOrdersHistory = () => {
                             {/* Пагинация */}
                             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
                                 <div className="text-sm text-slate-500">
-                                    Показано <span className="font-bold text-text-main">10</span> из <span className="font-bold text-text-main">45</span> заказов
+                                    Показано <span className="font-bold text-text-main">
+                                        {orders.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}
+                                    </span> - <span className="font-bold text-text-main">
+                                        {(currentPage - 1) * itemsPerPage + orders.length}
+                                    </span> из <span className="font-bold text-text-main">{totalOrders}</span> заказов
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <button className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-500 hover:bg-white transition-colors">Предыдущая</button>
-                                    <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-text-main font-bold text-sm">1</button>
-                                    <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-white transition-colors text-sm font-medium">2</button>
-                                    <button className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-500 hover:bg-white transition-colors">Следующая</button>
+                                    <button
+                                        disabled={currentPage === 1}
+                                        onClick={() => {
+                                            const newPage = currentPage - 1;
+                                            setCurrentPage(newPage);
+                                            fetchOrders(searchQuery, newPage);
+                                        }}
+                                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-500 hover:bg-white transition-colors disabled:opacity-50"
+                                    >
+                                        Предыдущая
+                                    </button>
+
+                                    <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-text-main font-bold text-sm">
+                                        {currentPage}
+                                    </button>
+
+                                    <button
+                                        disabled={currentPage >= Math.ceil(totalOrders / itemsPerPage)}
+                                        onClick={() => {
+                                            const newPage = currentPage + 1;
+                                            setCurrentPage(newPage);
+                                            fetchOrders(searchQuery, newPage);
+                                        }}
+                                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-500 hover:bg-white transition-colors disabled:opacity-50"
+                                    >
+                                        Следующая
+                                    </button>
                                 </div>
                             </div>
                         </div>

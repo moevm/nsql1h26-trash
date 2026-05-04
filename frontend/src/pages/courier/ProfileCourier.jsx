@@ -158,7 +158,8 @@ const ProfileCourier = () => {
                                     type="button"
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="..."
+                                    className="w-full sm:w-auto bg-[#42f042] hover:bg-[#36c936] text-[#0d1b0d] font-bold py-3.5 px-10 rounded-xl shadow-lg shadow-[#42f042]/20 transition-all hover:-translate-y-0.5"
+
                                 >
                                     {saving ? 'Сохранение...' : 'Сохранить профиль'}
                                 </button>
