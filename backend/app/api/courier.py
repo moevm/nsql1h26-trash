@@ -2,11 +2,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from app.api.deps import get_current_active_client
-from app.models.user import UserResponse, ProfileUpdateCourier, CourierResponse
+from app.models.user import UserResponse, ProfileUpdateCourier, CourierResponse, PasswordChangeRequest
 from app.db.orders import get_available_orders, get_courier_orders_service, AT_COLLECTION, USERS_COLLECTION, get_courier_transactions_service, get_courier_stats_service, create_withdraw_transaction_service
 from app.api.deps import get_current_active_courier
 from app.db.session import arango_instance
 from app.models.order import Transaction, WithdrawRequest
+from app.services.update_password import update_user_password
 
 router = APIRouter(
     prefix="/courier",
@@ -148,3 +149,16 @@ async def withdraw_funds(
     except Exception as e:
         print(f"Error in withdraw: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/change-password")
+async def change_password(
+        payload: PasswordChangeRequest,
+        current_user = Depends(get_current_active_courier)
+):
+    update_user_password(
+        user_id=current_user.id,
+        old_password=payload.old_password,
+        new_password=payload.new_password
+    )
+
+    return {"status": "success", "message": "Пароль обновлен"}
