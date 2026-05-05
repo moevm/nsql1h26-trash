@@ -188,7 +188,12 @@ const OrderDetails = () => {
                                     {status === 'active' && !hasPhoto && (
                                         <div className="mt-6 pt-6 border-t border-gray-100">
                                             <h3 className="text-sm font-bold text-[#0d1b0d] mb-4">Фотофиксация (Обязательно)</h3>
-                                            <input type="file" id="photo" className="hidden" onChange={handleFileChange} />
+                                            <input
+                                                type="file"
+                                                id="photo"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={handleFileChange} />
                                             <label htmlFor="photo" className="block cursor-pointer p-4 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-green-500 transition-colors">
                                                 {filePreview ? <img src={filePreview} className="h-32 mx-auto rounded" /> : "Нажмите, чтобы выбрать фото"}
                                             </label>

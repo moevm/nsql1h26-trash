@@ -102,10 +102,12 @@ const ProfileCourier = () => {
 
                     <div className="balance-card h-12">
                         <span className="icon-base text-primary text-xl">account_balance_wallet</span>
-                        <div className="flex flex-col items-end leading-none">
-                            <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider">Баланс</span>
-                            <span className="font-bold text-base">{balance.toLocaleString('ru-RU')} ₽</span>
-                        </div>
+                        <button
+                            onClick={() => navigate('/courier-wallet')}
+                            className="flex flex-col items-end">
+                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest leading-none mb-1">Баланс</span>
+                            <span className="font-black text-xl leading-none">{balance.toLocaleString()} ₽</span>
+                        </button>
                     </div>
                 </header>
 

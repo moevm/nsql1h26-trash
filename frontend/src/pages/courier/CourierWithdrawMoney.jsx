@@ -107,15 +107,6 @@ const WithdrawMoney = () => {
                     <div className="flex items-center gap-4">
                         <h2 className="text-2xl font-bold text-text-main">Вывод средств</h2>
                     </div>
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-[#e7f3e7] shadow-sm">
-                            <span className="material-symbols-outlined text-green-600">account_balance_wallet</span>
-                            <div className="flex flex-col items-end leading-none">
-                                <span className="text-[10px] text-gray-500 font-medium uppercase">Баланс</span>
-                                <span className="text-text-main font-bold text-base">{balance.toLocaleString()} ₽</span>
-                            </div>
-                        </div>
-                    </div>
                 </header>
 
                 <div className="flex-1 p-8 overflow-y-auto">

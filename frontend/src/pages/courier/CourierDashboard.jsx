@@ -78,10 +78,12 @@ const CourierDashboard = () => {
 
                     <div className="balance-card">
                         <span className="icon-base text-primary text-2xl">account_balance_wallet</span>
-                        <div className="flex flex-col items-end">
+                        <button
+                            onClick={() => navigate('/courier-wallet', { state: { userName } })}
+                            className="flex flex-col items-end">
                             <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest leading-none mb-1">Баланс</span>
                             <span className="font-black text-xl leading-none">{balance.toLocaleString()} ₽</span>
-                        </div>
+                        </button>
                     </div>
                 </header>
 
