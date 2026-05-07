@@ -53,3 +53,10 @@ class CourierResponse(UserResponse):
 class PasswordChangeRequest(BaseModel):
     old_password: str = Field(..., min_length=8)
     new_password: str = Field(..., min_length=8)
+
+class AdminRegisterRequest(BaseModel):
+    full_name: str
+    email: str
+    phone: str
+    password: str
+    confirm_password: str

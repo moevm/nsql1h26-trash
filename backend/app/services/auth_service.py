@@ -5,6 +5,7 @@ from app.services.auth_roles import (
     ensure_default_debug_users,
     register_courier,
     register_customer,
+    register_admin,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "create_access_token",
     "ensure_default_admin",
     "ensure_default_debug_users",
+    "register_admin",
 ]

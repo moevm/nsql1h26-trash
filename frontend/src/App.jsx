@@ -22,6 +22,7 @@ import ApproveOrder from "./pages/customer/ApproveOrder.jsx";
 import LoginPage from "./pages/Login.jsx";
 import RoleSelectionPage from "./pages/ChooseRoleEnterence.jsx";
 import ChooseRoleAdmin from "./pages/ChooseRoleAdmin.jsx";
+import AdminRegistration from "./pages/admin/AdminRegistration.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import AdminOrders from "./pages/admin/AdminOrders.jsx";
@@ -63,6 +64,7 @@ function App() {
                     <Route path="/forgot-password-email" element={<ForgotPasswordEmail />} />
                     <Route path="/verify-code" element={<VerifyCode />} />
                     <Route path="/new-password" element={<NewPassword />} />
+                    <Route path="/admin-registration" element={<AdminRegistration />} />
                 </Routes>
             </div>
         </Router>
