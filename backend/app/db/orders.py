@@ -378,7 +378,11 @@ def get_order_details_for_courier(order_key: str):
 
     return cursor.next() if not cursor.empty() else None
 
-def get_courier_orders_service(courier_id: str, search: str = None, skip: int = 0, limit: int = 10, sort: str = "desc"):
+def get_courier_orders_service(courier_id: str, search: str = None, waste_type: str = None,
+                               status: str = None, skip: int = 0, limit: int = 10, sort: str = "desc"):
+    """
+    Получение активных и выполненных заказов курьером
+    """
     db = arango_instance.db
     sort_direction = "DESC" if sort == "desc" else "ASC"
 
@@ -386,6 +390,10 @@ def get_courier_orders_service(courier_id: str, search: str = None, skip: int = 
     FOR edge IN Executes
         FILTER edge._from == @courier_id
         LET order = DOCUMENT(edge._to)
+        
+        FILTER (@status == null OR order.status == @status)
+        FILTER (@waste_type == null OR order.waste_type == @waste_type)
+
         LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND order @@at RETURN v)
         
         LET final_order = MERGE(order, {{ 
@@ -396,8 +404,7 @@ def get_courier_orders_service(courier_id: str, search: str = None, skip: int = 
 
         FILTER @search == null OR (
             CONTAINS(LOWER(final_order.id), LOWER(@search)) OR
-            CONTAINS(LOWER(final_order.address), LOWER(@search)) OR
-            CONTAINS(LOWER(TO_STRING(final_order.price)), LOWER(@search))
+            CONTAINS(LOWER(final_order.address), LOWER(@search))
         )
         
         SORT final_order.created_at {sort_direction}
@@ -408,6 +415,8 @@ def get_courier_orders_service(courier_id: str, search: str = None, skip: int = 
     bind_vars = {
         "courier_id": f"{USERS_COLLECTION}/{courier_id}",
         "search": search,
+        "waste_type": waste_type,
+        "status": status,
         "skip": skip,
         "limit": limit,
         "@at": AT_COLLECTION

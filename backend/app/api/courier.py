@@ -75,15 +75,16 @@ async def update_my_profile(
 @router.get("/my-orders")
 async def get_courier_orders(
         search: Optional[str] = Query(None),
+        waste_type: Optional[str] = Query(None),
+        status: Optional[str] = Query(None),
         sort: str = Query("desc"),
         skip: int = Query(0, ge=0),
         limit: int = Query(10, gt=0, le=100),
         current_user: UserResponse = Depends(get_current_active_courier)
 ):
-    """
-    Получение активных заказов курьера
-    """
-    orders, total = get_courier_orders_service(current_user.id, search, skip, limit, sort)
+    orders, total = get_courier_orders_service(
+        current_user.id, search, waste_type, status, skip, limit, sort
+    )
     return {"orders": orders, "total": total}
 
 @router.get("/balance")

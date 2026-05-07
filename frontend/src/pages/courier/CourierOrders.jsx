@@ -19,36 +19,59 @@ const CourierOrdersHistory = () => {
     };
     const [totalOrders, setTotalOrders] = useState(0);
     const [sortOrder, setSortOrder] = useState('desc');
+    const [selectedWasteType, setSelectedWasteType] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState('');
 
-    const fetchOrders = async (query = searchQuery, page = 1, sort = sortOrder) => {
+    const fetchOrders = async (params = {}) => {
+        const {
+            page = currentPage,
+            query = searchQuery,
+            wasteType = selectedWasteType,
+            status = selectedStatus,
+            sort = sortOrder
+        } = params;
+
         const token = localStorage.getItem('access_token');
         setLoading(true);
+
         try {
             const skip = (page - 1) * itemsPerPage;
-            let url = `/api/v1/courier/my-orders?skip=${skip}&limit=${itemsPerPage}&sort=${sort}`;
-            if (query) url += `&search=${encodeURIComponent(query)}`;
+            const searchParams = new URLSearchParams({
+                skip: skip,
+                limit: itemsPerPage,
+                sort: sort
+            });
 
-            const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (query) searchParams.append('search', query);
+            if (wasteType) searchParams.append('waste_type', wasteType);
+            if (status) searchParams.append('status', status);
+
+            const response = await fetch(`/api/v1/courier/my-orders?${searchParams.toString()}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
             const data = await response.json();
-
             setOrders(data.orders || []);
             setTotalOrders(data.total || 0);
         } catch (error) {
-            console.error(error);
+            console.error("Fetch error:", error);
         } finally {
             setLoading(false);
         }
     };
+
     const toggleSort = () => {
         const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
         setSortOrder(newOrder);
         setCurrentPage(1);
-        fetchOrders(searchQuery, 1, newOrder);
+        fetchOrders({ page: 1, sort: newOrder });
     };
 
+
     useEffect(() => {
-        fetchOrders();
-    }, []);
+        setCurrentPage(1);
+        fetchOrders(1);
+    }, [selectedWasteType, selectedStatus]);
 
     console.log("Данные заказов:", orders);
     return (
@@ -68,9 +91,11 @@ const CourierOrdersHistory = () => {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => {
-                                setSearchQuery(e.target.value);
+                                const val = e.target.value;
+                                setSearchQuery(val);
                                 setCurrentPage(1);
-                                fetchOrders(e.target.value, 1);
+                                // ПРАВИЛЬНЫЙ ВЫЗОВ: передаем объект
+                                fetchOrders({ page: 1, query: val });
                             }}
                         />
                     </div>
@@ -95,10 +120,37 @@ const CourierOrdersHistory = () => {
                                                 </span>
                                             </div>
                                         </th>
-                                        <th className="table-head-cell">Тип мусора</th>
+                                        <th className="table-head-cell">
+                                            <div className="flex items-center gap-2">
+                                                <span>Тип мусора</span>
+                                                <select
+                                                    value={selectedWasteType}
+                                                    onChange={(e) => setSelectedWasteType(e.target.value)}
+                                                    className="bg-transparent border-none text-[10px] font-bold text-primary cursor-pointer focus:ring-0 p-0 w-4"
+                                                >
+                                                    <option value="">Все</option>
+                                                    <option value="Мебель">Мебель</option>
+                                                    <option value="Строительный">Строительный</option>
+                                                    <option value="Бытовой">Бытовой</option>
+                                                </select>
+                                            </div>
+                                        </th>
                                         <th className="table-head-cell">Адрес</th>
                                         <th className="table-head-cell text-right">Награда</th>
-                                        <th className="table-head-cell text-center">Статус</th>
+                                        <th className="table-head-cell text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <span>Статус</span>
+                                                <select
+                                                    value={selectedStatus}
+                                                    onChange={(e) => setSelectedStatus(e.target.value)}
+                                                    className="bg-transparent border-none text-[10px] font-bold text-primary cursor-pointer focus:ring-0 p-0 w-4"
+                                                >
+                                                    <option value="">Все</option>
+                                                    <option value="active">В работе</option>
+                                                    <option value="done">Выполнен</option>
+                                                </select>
+                                            </div>
+                                        </th>
                                     </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
