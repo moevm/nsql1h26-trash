@@ -17,7 +17,9 @@ const Header = () => {
                 <span className="icon-logo material-symbols-outlined">recycling</span>
                 <h2 className="logo-text">ЭкоСервис</h2>
             </div>
-            <button className="nav-button">
+            <button
+                onClick={() => navigate('/courier')}
+                className="nav-button">
                 <span className="icon-nav material-symbols-outlined">local_shipping</span>
                 <span>Для курьеров</span>
             </button>

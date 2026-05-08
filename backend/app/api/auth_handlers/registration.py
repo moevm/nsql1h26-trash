@@ -3,8 +3,8 @@ import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from app.models.user import CustomerRegisterRequest, UserResponse
-from app.services.auth_service import register_courier, register_customer
+from app.models.user import CustomerRegisterRequest, UserResponse, AdminRegisterRequest
+from app.services.auth_service import register_courier, register_customer, register_admin
 from app.db.events import log_event
 
 router = APIRouter()
@@ -93,6 +93,38 @@ async def courier_register(
             event_type="user_registered",
             title="Регистрация нового курьера",
             description=f"{full_name} • {transport}",
+            related_id=result["id"],
+            related_type="user",
+        )
+    except Exception as e:
+        print(f"[WARN] Не удалось записать событие регистрации курьера: {e}")
+
+    return result
+
+@router.post("/register/admin", response_model=UserResponse, status_code=201)
+async def admin_register(payload: AdminRegisterRequest): # Принимаем модель (JSON)
+    try:
+        result = register_admin(
+            full_name=payload.full_name,
+            email=payload.email,
+            phone=payload.phone,
+            password=payload.password,
+            confirm_password=payload.confirm_password,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if msg == "DUPLICATE_EMAIL":
+            raise HTTPException(
+                status_code=409,
+                detail="Пользователь с таким email уже существует",
+            )
+        raise HTTPException(status_code=422, detail=msg)
+
+    try:
+        log_event(
+            event_type="user_registered",
+            title="Регистрация нового курьера",
+            description=f"{full_name}",
             related_id=result["id"],
             related_type="user",
         )

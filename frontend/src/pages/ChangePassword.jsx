@@ -5,14 +5,61 @@ const ChangePassword = () => {
     const navigate = useNavigate();
     const [showPasswords, setShowPasswords] = useState({ old: false, new: false, confirm: false });
     const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const toggleVisibility = (field) => {
         setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log("Данные для смены пароля:", passwords);
+        setError('');
+
+        if (passwords.new !== passwords.confirm) {
+            setError("Новые пароли не совпадают");
+            return;
+        }
+
+        if (passwords.new.length < 8) {
+            setError("Новый пароль должен быть не менее 8 символов");
+            return;
+        }
+
+        if (!passwords.old || !passwords.new) return;
+
+        if (passwords.old === passwords.new) {
+            setError("Новый пароль должен отличаться от старого");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await fetch('/api/v1/courier/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({
+                    old_password: passwords.old,
+                    new_password: passwords.new
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert("Пароль успешно изменен!");
+                navigate(-1);
+            } else {
+                setError(data.detail || "Ошибка при смене пароля");
+            }
+        } catch (err) {
+            setError("Ошибка соединения с сервером");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -90,11 +137,18 @@ const ChangePassword = () => {
 
                                 {/* Кнопки действий */}
                                 <div className="flex flex-col gap-3 pt-4">
+                                    {error && (
+                                        <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-base">error</span>
+                                            {error}
+                                        </div>
+                                    )}
                                     <button
                                         type="submit"
-                                        className="flex w-full items-center justify-center rounded-lg h-12 bg-primary text-slate-900 font-bold text-base hover:opacity-90 transition-opacity"
+                                        disabled={loading}
+                                        className="flex w-full items-center justify-center rounded-lg h-12 bg-primary text-slate-900 font-bold text-base hover:opacity-90 transition-opacity disabled:opacity-50"
                                     >
-                                        Обновить пароль
+                                        {loading ? 'Обновление...' : 'Обновить пароль'}
                                     </button>
                                     <button
                                         type="button"

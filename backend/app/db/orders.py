@@ -1,6 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from app.db.session import arango_instance
 from app.models.order import OrderCreate, Order
+
 
 USERS_COLLECTION = "Users"
 ORDERS_COLLECTION = "Orders"
@@ -116,14 +117,9 @@ def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
 
 
 
-def get_available_orders(type_filter: str = None):
-    _ensure_collections()
+def get_available_orders(type_filter: str = None, skip: int = 0, limit: int = 10):
     db = arango_instance.db
-    all_docs = list(db.collection(ORDERS_COLLECTION).all())
-    print(f"DEBUG: Всего документов в коллекции '{ORDERS_COLLECTION}': {len(all_docs)}")
-    if len(all_docs) > 0:
-        print(f"DEBUG: Статус первого документа: {all_docs[0].get('status')}")
-        print(f"DEBUG: Тип отходов первого документа: {all_docs[0].get('waste_type')}")
+
     query = """
     FOR o IN @@orders
         FILTER o.status == 'searching'
@@ -136,39 +132,47 @@ def get_available_orders(type_filter: str = None):
         FILTER !is_taken
 
         LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o @@at RETURN v)
+        
+        SORT o.created_at DESC
+        LIMIT @skip, @limit
 
         RETURN MERGE(o, {
+            id: o._key,
             address: addr_doc.full_address,
             address_details: addr_doc.details
         })
     """
 
+    bind_vars = {
+        "filter": type_filter,
+        "skip": skip,
+        "limit": limit,
+        "@orders": ORDERS_COLLECTION,
+        "@executes": EXECUTES_COLLECTION,
+        "@at": AT_COLLECTION,
+    }
+
     cursor = db.aql.execute(
         query,
-        bind_vars={
-            "filter": type_filter,
-            "@orders": ORDERS_COLLECTION,
-            "@executes": EXECUTES_COLLECTION,
-            "@at": AT_COLLECTION,
-        }
+        bind_vars=bind_vars,
+        full_count=True
     )
 
     raw_orders = list(cursor)
-
+    total_count = cursor.statistics().get('fullCount', 0)
     for o in raw_orders:
         style = ORDER_STYLES.get(
             o.get("waste_type"),
             {"icon": "eco", "color": "text-green-500", "bg": "bg-green-50"}
         )
         o.update({
-            "id": o.get("_key"),
             "icon": style["icon"],
             "color": style["color"],
             "bg": style["bg"],
             "isNew": True
         })
 
-    return raw_orders
+    return raw_orders, total_count
 
 
 def update_order_status_by_courier(order_key: str, new_status: str, courier_key: str):
@@ -374,35 +378,203 @@ def get_order_details_for_courier(order_key: str):
 
     return cursor.next() if not cursor.empty() else None
 
-def get_courier_orders_service(courier_id: str, search: str = None):
+def get_courier_orders_service(courier_id: str, search: str = None, waste_type: str = None,
+                               status: str = None, skip: int = 0, limit: int = 10, sort: str = "desc"):
+    """
+    Получение активных и выполненных заказов курьером
+    """
     db = arango_instance.db
+    sort_direction = "DESC" if sort == "desc" else "ASC"
 
-    query = """
+    query = f"""
     FOR edge IN Executes
         FILTER edge._from == @courier_id
         LET order = DOCUMENT(edge._to)
+        
+        FILTER (@status == null OR order.status == @status)
+        FILTER (@waste_type == null OR order.waste_type == @waste_type)
+
         LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND order @@at RETURN v)
         
-        LET final_order = MERGE(order, { 
+        LET final_order = MERGE(order, {{ 
             "id": order._key,
             "address": addr_doc.full_address,
             "address_details": addr_doc.details
-        })
+        }})
 
         FILTER @search == null OR (
             CONTAINS(LOWER(final_order.id), LOWER(@search)) OR
-            CONTAINS(LOWER(final_order.address), LOWER(@search)) OR
-            CONTAINS(LOWER(TO_STRING(final_order.price)), LOWER(@search))
+            CONTAINS(LOWER(final_order.address), LOWER(@search))
         )
         
-        SORT final_order.created_at DESC
+        SORT final_order.created_at {sort_direction}
+        LIMIT @skip, @limit
         RETURN final_order
     """
 
     bind_vars = {
         "courier_id": f"{USERS_COLLECTION}/{courier_id}",
         "search": search,
+        "waste_type": waste_type,
+        "status": status,
+        "skip": skip,
+        "limit": limit,
         "@at": AT_COLLECTION
     }
 
-    return list(db.aql.execute(query, bind_vars=bind_vars))
+    cursor = db.aql.execute(query, bind_vars=bind_vars, full_count=True)
+    orders = list(cursor)
+    total_count = cursor.statistics().get('fullCount', 0)
+
+    return orders, total_count
+
+def get_courier_stats_service(courier_key: str):
+    """
+    Рассчитывает статистику курьера:
+    - Общее количество заказов
+    - Доход и заказы за последние 30 дней
+    - Доход и заказы за период 60-30 дней назад
+    """
+    db = arango_instance.db
+    user_id = f"{USERS_COLLECTION}/{courier_key}"
+
+    query = """
+    LET executed_orders = (
+        FOR v, e IN 1..1 OUTBOUND @user_id @@executes
+            FILTER v.status == 'done'
+            RETURN {
+                price: TO_NUMBER(v.price || 0),
+                created_at: v.created_at
+            }
+    )
+    
+    LET now = DATE_NOW()
+    LET thirty_days_ago = DATE_SUBTRACT(now, 30, "days")
+    LET sixty_days_ago = DATE_SUBTRACT(now, 60, "days")
+    
+    LET current_month_orders = (
+        FOR o IN executed_orders
+            FILTER o.created_at >= DATE_ISO8601(thirty_days_ago)
+            RETURN o
+    )
+    
+    LET last_month_orders = (
+        FOR o IN executed_orders
+            FILTER o.created_at >= DATE_ISO8601(sixty_days_ago) 
+            FILTER o.created_at < DATE_ISO8601(thirty_days_ago)
+            RETURN o
+    )
+
+    RETURN {
+        "total_orders": LENGTH(executed_orders),
+        "month_earnings": SUM(current_month_orders[*].price),
+        "month_orders_count": LENGTH(current_month_orders),
+        "prev_month_earnings": SUM(last_month_orders[*].price),
+        "prev_month_orders_count": LENGTH(last_month_orders)
+    }
+    """
+
+    bind_vars = {
+        "user_id": user_id,
+        "@executes": EXECUTES_COLLECTION
+    }
+
+    cursor = db.aql.execute(query, bind_vars=bind_vars)
+
+    default_stats = {
+        "total_orders": 0,
+        "month_earnings": 0,
+        "month_orders_count": 0,
+        "prev_month_earnings": 0,
+        "prev_month_orders_count": 0
+    }
+
+    return cursor.next() if not cursor.empty() else default_stats
+
+
+def get_courier_transactions_service(courier_key: str, skip: int = 0, limit: int = 20, period: str = 'За неделю'):
+    db = arango_instance.db
+    now = datetime.utcnow()
+
+    if period == 'За неделю':
+        start_date = now - timedelta(days=7)
+    elif period == 'За месяц':
+        start_date = now - timedelta(days=30)
+    elif period == 'За год':
+        start_date = now - timedelta(days=365)
+    else:
+        start_date = None
+
+    start_timestamp_iso = start_date.isoformat() if start_date else None
+
+    query = """
+    FOR t IN @@transactions
+        FILTER t.courier_id == @courier_id
+        FILTER @start_timestamp == null OR t.timestamp >= @start_timestamp
+        SORT t.timestamp DESC
+        LIMIT @skip, @limit
+        RETURN {
+            "date": t.timestamp,
+            "type": t.type == 'order_payout' ? "Зачисление за заказ" : (t.description || "Операция"),
+            "amount": t.amount,
+            "isIncome": t.amount > 0
+        }
+    """
+
+    bind_vars = {
+        "courier_id": str(courier_key),
+        "skip": skip,
+        "limit": limit,
+        "start_timestamp": start_timestamp_iso,
+        "@transactions": TRANSACTION_COLLECTION
+    }
+
+    cursor = db.aql.execute(query, bind_vars=bind_vars, full_count=True)
+    transactions = list(cursor)
+    total_count = cursor.statistics().get('fullCount', 0)
+
+    return {
+        "transactions": transactions,
+        "total": total_count
+    }
+
+def create_withdraw_transaction_service(courier_key: str, amount: float, card_number: str):
+    db = arango_instance.db
+    courier_id = f"Users/{courier_key}"
+
+    card_mask = f"**** {card_number[-4:]}"
+    description_text = f"Вывод на карту {card_mask}"
+
+    query = """
+    LET courier = DOCUMENT(@courier_id)
+    LET withdrawAmount = TO_NUMBER(@amount)
+    
+    FILTER courier != null AND TO_NUMBER(courier.balance) >= withdrawAmount
+
+    UPDATE courier WITH { balance: TO_NUMBER(courier.balance) - withdrawAmount } IN Users
+    INSERT {
+        courier_id: @courier_key,
+        amount: -withdrawAmount, 
+        type: "withdraw",
+        status: "completed",
+        description: @description, 
+        card_mask: @card_mask,
+        timestamp: DATE_ISO8601(DATE_NOW())
+    } INTO Transactions
+    
+    RETURN {
+        new_balance: TO_NUMBER(courier.balance) - withdrawAmount,
+        transaction: NEW
+    }
+    """
+
+    bind_vars = {
+        "courier_id": courier_id,
+        "courier_key": courier_key,
+        "amount": float(amount),
+        "description": description_text,
+        "card_mask": card_mask
+    }
+
+    cursor = db.aql.execute(query, bind_vars=bind_vars)
+    return cursor.next() if not cursor.empty() else None

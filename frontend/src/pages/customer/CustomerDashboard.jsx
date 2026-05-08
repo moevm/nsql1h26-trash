@@ -92,7 +92,9 @@ const CustomerDashboard = () => {
                     <div className="space-y-4">
                         <div className="flex items-center justify-between px-2">
                             <h4 className="text-sm font-black uppercase tracking-widest text-[#586458]">Текущий вывоз</h4>
-                            {orders.length > 0 && <button className="text-xs font-bold text-primary-hover hover:underline">Вся история</button>}
+                            {orders.length > 0 && <button
+                                onClick={() => navigate('/customer-history')}
+                                className="text-xs font-bold text-primary-hover hover:underline">Вся история</button>}
                         </div>
 
                         {orders.length === 0 ? (

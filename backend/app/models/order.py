@@ -37,7 +37,12 @@ class Transaction(BaseModel):
     type: str
     status: str
     timestamp: str
+    description: Optional[str] = None
+    card_mask: Optional[str] = None
 
+class WithdrawRequest(BaseModel):
+    amount: float = Field(..., ge=500)
+    card_number: str = Field(..., min_length=16)
 
 class CourierShortInfo(BaseModel):
     id: str

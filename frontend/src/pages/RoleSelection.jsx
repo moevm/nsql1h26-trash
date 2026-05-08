@@ -55,11 +55,11 @@ function RoleSelection() {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
                         <RoleCard
                             title="Заказчик"
                             icon="home_work"
-                            image="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
+                            image="https://images.unsplash.com/photo-1581578731522-7455051462c1?auto=format&fit=crop&w=800&q=80"
                             desc="Быстрый и удобный сервис для вывоза бытовых отходов прямо от вашей двери. Идеально для жильцов квартир и частных домов."
                             features={["Заказ в один клик", "Отслеживание курьера"]}
                             isPrimary={true}
@@ -76,11 +76,18 @@ function RoleSelection() {
                             buttonText="Продолжить как курьер"
                             onSelect={() => navigate('/courier')}
                         />
-                    </div>
 
-                    <p className="selection-footer-text">
-                        Вы сможете изменить роль позже в настройках профиля.
-                    </p>
+                        <RoleCard
+                            title="Администратор"
+                            icon="admin_panel_settings"
+                            image="https://images.unsplash.com/photo-1454165833267-028ec28068e6?auto=format&fit=crop&w=800&q=80"
+                            desc="Полный контроль над системой: управление заказами, мониторинг работы курьеров и детальная аналитика всех бизнес-процессов сервиса."
+                            features={["Управление штатом", "Контроль качества"]}
+                            isPrimary={false}
+                            buttonText="Войти в панель управления"
+                            onSelect={() => navigate('/admin-registration')}
+                        />
+                </div>
                 </div>
             </main>
         </div>

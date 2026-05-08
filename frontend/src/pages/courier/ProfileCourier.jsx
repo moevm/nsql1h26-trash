@@ -102,10 +102,12 @@ const ProfileCourier = () => {
 
                     <div className="balance-card h-12">
                         <span className="icon-base text-primary text-xl">account_balance_wallet</span>
-                        <div className="flex flex-col items-end leading-none">
-                            <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider">Баланс</span>
-                            <span className="font-bold text-base">{balance.toLocaleString('ru-RU')} ₽</span>
-                        </div>
+                        <button
+                            onClick={() => navigate('/courier-wallet')}
+                            className="flex flex-col items-end">
+                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest leading-none mb-1">Баланс</span>
+                            <span className="font-black text-xl leading-none">{balance.toLocaleString()} ₽</span>
+                        </button>
                     </div>
                 </header>
 
@@ -158,7 +160,8 @@ const ProfileCourier = () => {
                                     type="button"
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="..."
+                                    className="w-full sm:w-auto bg-[#42f042] hover:bg-[#36c936] text-[#0d1b0d] font-bold py-3.5 px-10 rounded-xl shadow-lg shadow-[#42f042]/20 transition-all hover:-translate-y-0.5"
+
                                 >
                                     {saving ? 'Сохранение...' : 'Сохранить профиль'}
                                 </button>

@@ -6,6 +6,8 @@ const OrderHistory = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [filter, setFilter] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 7;
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -28,6 +30,10 @@ const OrderHistory = () => {
         ? orders
         : orders.filter(o => o.status === filter);
 
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentOrders = filteredOrders.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
 
     return (
         <div className="flex min-h-screen w-full flex-col md:flex-row bg-[#f6f8f6] font-display text-[#111811] antialiased">
@@ -101,15 +107,15 @@ const OrderHistory = () => {
                                 <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase tracking-wider text-slate-500 font-semibold">
                                     <th className="px-6 py-4">ID Заказа</th>
                                     <th className="px-6 py-4">Дата и время</th>
+                                    <th className="px-6 py-4">Статус заказа</th>
                                     <th className="px-6 py-4">Тип мусора</th>
                                     <th className="px-6 py-4">Адрес</th>
-                                    <th className="px-6 py-4">Курьер</th>
                                     <th className="px-6 py-4 text-right">Стоимость</th>
                                     <th className="px-6 py-4 text-center">Действия</th>
                                 </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                {filteredOrders.map((order) => (
+                                {currentOrders.map((order) => (
                                     <tr
                                         key={order._key}
                                         onClick={() => navigate(`/order/${order._key}`)}
@@ -117,30 +123,18 @@ const OrderHistory = () => {
                                     >
                                         <td className="px-6 py-4 text-sm font-medium text-slate-900">#{order._key?.substring(0, 8)}</td>
                                         <td className="px-6 py-4 text-sm">
-                <span className="text-slate-900 font-medium">
-                    {new Date(order.created_at).toLocaleDateString()}
-                </span>
+                                            <span className="text-slate-900 font-medium">
+                                                {new Date(order.created_at).toLocaleDateString()}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4">
                                             <StatusBadge status={order.status} />
                                         </td>
+                                        <td className="px-6 py-4">
+                                            <StatusBadge status={order.waste_type} />
+                                        </td>
                                         <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[200px]">
                                             {order.address || "—"}
-                                        </td>
-
-                                        <td className="px-6 py-4">
-                                            {order.status === 'searching' ? (
-                                                <span className="text-slate-400 font-medium italic">—</span>
-                                            ) : (
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`h-8 w-8 rounded-full border border-slate-200 overflow-hidden bg-slate-100`}>
-                                                        <img src={`https://ui-avatars.com/api/?name=${order.client_name || 'Courier'}&background=42f042`} alt="courier" />
-                                                    </div>
-                                                    <span className="text-sm font-medium text-slate-700">
-                            {order.client_name || "Курьер"}
-                        </span>
-                                                </div>
-                                            )}
                                         </td>
 
                                         <td className="px-6 py-4 text-right font-bold text-slate-900">{order.price} ₽</td>
@@ -163,18 +157,32 @@ const OrderHistory = () => {
                                 Показано <span className="font-medium text-slate-900">1</span> - <span className="font-medium text-slate-900">10</span> из <span className="font-medium text-slate-900">97</span> результатов
                             </p>
                             <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                <button className="px-3 py-2 rounded-l-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 flex items-center">
-                                    <span className="material-symbols-outlined text-sm">arrow_back</span>
-                                    <span className="ml-1">Назад</span>
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(prev => prev - 1)}
+                                    className="px-3 py-2 rounded-l-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    Назад
                                 </button>
-                                {[1, 2, 3, '...', 10].map((p, i) => (
-                                    <button key={i} className={`px-4 py-2 border text-sm font-medium ${p === 1 ? 'z-10 bg-primary/10 border-primary text-primary-dark font-bold' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
-                                        {p}
+                                {[...Array(totalPages)].map((_, i) => (
+                                    <button
+                                        key={i + 1}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        className={`px-4 py-2 border text-sm font-medium ${
+                                            currentPage === i + 1
+                                                ? 'z-10 bg-primary/10 border-primary text-primary font-bold'
+                                                : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {i + 1}
                                     </button>
                                 ))}
-                                <button className="px-3 py-2 rounded-r-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 flex items-center">
-                                    <span className="mr-1">Вперед</span>
-                                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                                <button
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    onClick={() => setCurrentPage(prev => prev + 1)}
+                                    className="px-3 py-2 rounded-r-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    Вперед
                                 </button>
                             </nav>
                         </div>
@@ -189,7 +197,10 @@ const StatusBadge = ({ status }) => {
     const config = {
         searching: { text: 'Поиск', color: 'bg-amber-100 text-amber-800' },
         active: { text: 'В работе', color: 'bg-blue-100 text-blue-800' },
-        done: { text: 'Выполнено', color: 'bg-green-100 text-green-800' }
+        done: { text: 'Выполнено', color: 'bg-green-100 text-green-800' },
+        'Мебель': { text: 'Мебель', color: 'bg-red-100 text-red-700 border border-red-200' },
+        'Строительный': { text: 'Строительный', color: 'bg-orange-100 text-orange-700 border border-orange-200' },
+        'Бытовой': { text: 'Бытовой', color: 'bg-emerald-100 text-emerald-700 border border-emerald-200' }
     };
     const c = config[status] || { text: status, color: 'bg-gray-100' };
 
