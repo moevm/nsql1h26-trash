@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from app.db.session import arango_instance
+from app.db.users import deduct_order_payment, payout_to_courier
 from app.models.order import OrderCreate, Order
 
 
@@ -59,10 +60,10 @@ def _ensure_collections():
 def create_order(order_in: OrderCreate, client_key: str, price: float) -> Order:
     """
     Создаёт новый заказ.
-    client_key — _key пользователя-заказчика (нужен для связи)
     """
     _ensure_collections()
     db = arango_instance.db
+    deduct_order_payment(user_key=client_key, amount=price)
 
     addr_data = {
         "full_address": order_in.address,
@@ -201,6 +202,13 @@ def update_order_status_by_courier(order_key: str, new_status: str, courier_key:
 
         price = float(order.get("price", 0.0))
 
+
+        payout_to_courier(
+            courier_key=courier_key,
+            amount=price,
+            order_key=order_key
+        )
+
         tx_meta = db.collection(TRANSACTION_COLLECTION).insert({
             "amount": price,
             "type": "order_payout",
@@ -215,15 +223,6 @@ def update_order_status_by_courier(order_key: str, new_status: str, courier_key:
             "created_at": now
         })
 
-        user_col = db.collection(USERS_COLLECTION)
-        user_doc = user_col.get(courier_key)
-
-        if user_doc:
-            current_balance = user_doc.get("balance", 0.0)
-            user_col.update({
-                "_key": courier_key,
-                "balance": current_balance + price
-            })
 
     db.collection(ORDERS_COLLECTION).update({"_key": order_key, "status": new_status})
     return {"success": True}
