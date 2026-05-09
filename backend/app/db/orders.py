@@ -229,29 +229,38 @@ def update_order_status_by_courier(order_key: str, new_status: str, courier_key:
 
 
 
-def get_my_orders(client_key: str, status_filter: str = None):
+def get_my_orders(client_key: str, status_filter: str = None, waste_type: str = None, skip: int = 0, limit: int = 20, sort_by: str = "created_at", sort_order: str = "desc"):
     """
     Получить все заказы конкретного клиента
     """
     _ensure_collections()
     db = arango_instance.db
 
+    allowed_sort_fields = {"created_at", "price", "waste_type", "volume"}
+    if sort_by not in allowed_sort_fields:
+        sort_by = "created_at"
+
+    direction = "DESC" if sort_order.lower() == "desc" else "ASC"
+
     query = """
     LET user_id = CONCAT(@users_collection, '/', @client_key)
     
     FOR o IN 1..1 OUTBOUND user_id @@owns_collection
         FILTER @status_filter == null OR o.status == @status_filter
-        SORT o.created_at DESC
+        FILTER @waste_type == null OR o.waste_type == @waste_type
         
-        LET addr_doc = FIRST(
+        LET addr = FIRST(
             FOR v IN 1..1 OUTBOUND o @@at_collection
                 RETURN v
         )
         
+        SORT o.@sort_field @sort_direction
+        LIMIT @skip, @limit
+        
         RETURN MERGE(o, {
             "id": o._key,
-            "address": addr_doc.full_address,
-            "address_details": addr_doc.details,
+            "address": addr.full_address,
+            "address_details": addr.details
         })
     """
 
@@ -263,7 +272,12 @@ def get_my_orders(client_key: str, status_filter: str = None):
             "@at_collection": AT_COLLECTION,
             "status_filter": status_filter,
             "users_collection": USERS_COLLECTION,
-        }
+            "waste_type": waste_type,
+            "sort_field": sort_by,
+            "sort_direction": direction,
+            "skip": skip,
+            "limit": limit,
+        },
     )
 
     raw_orders = list(cursor)
