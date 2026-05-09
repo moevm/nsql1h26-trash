@@ -6,6 +6,7 @@ from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
 from typing import Optional
+from app.db.events import log_event
 import os
 import uuid
 
@@ -35,6 +36,11 @@ async def create_new_order(
     """Создание нового заказа и создание связи Owns"""
     try:
         new_order = create_order(order_in, client_key=current_user.id, price=order_in.price)
+        log_event(event_type="order_created", 
+                  title = f"Новая заявка на вывоз", 
+                  description=f"Клиент: {current_user.full_name} - {order_in.waste_type}", 
+                  related_id=new_order.id, 
+                  related_type="order",)
 
         return new_order
 
@@ -104,6 +110,23 @@ async def update_order_status(
             raise HTTPException(status_code=404, detail="Заказ не найден")
         if result["error"] == "no_photo":
             raise HTTPException(status_code=400, detail="Сначала загрузите фото подтверждения!")
+
+    if status_update.status == "done":
+        log_event(
+            event_type="order_completed",
+            title=f'Заказ ORD-{order_id} выполнен',
+            description=f"Курьер: {current_courier.full_name}",
+            related_id=order_id,
+            related_type="order",
+        )    
+    elif status_update.status == "active":
+        log_event(
+            event_type="order_accepted",
+            title=f'Заказ ORD-{order_id} принят курьером',
+            description=f"Курьер: {current_courier.full_name}",
+            related_id=order_id,
+            related_type="order",
+        )  
 
     return {"message": f"Статус успешно изменен на {status_update.status}"}
 
