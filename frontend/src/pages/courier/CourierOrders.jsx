@@ -70,7 +70,7 @@ const CourierOrdersHistory = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-        fetchOrders(1);
+        fetchOrders({ page: 1 });
     }, [selectedWasteType, selectedStatus]);
 
     console.log("Данные заказов:", orders);
@@ -94,7 +94,6 @@ const CourierOrdersHistory = () => {
                                 const val = e.target.value;
                                 setSearchQuery(val);
                                 setCurrentPage(1);
-                                // ПРАВИЛЬНЫЙ ВЫЗОВ: передаем объект
                                 fetchOrders({ page: 1, query: val });
                             }}
                         />
@@ -202,7 +201,7 @@ const CourierOrdersHistory = () => {
                                         onClick={() => {
                                             const newPage = currentPage - 1;
                                             setCurrentPage(newPage);
-                                            fetchOrders(searchQuery, newPage);
+                                            fetchOrders({ page: newPage });
                                         }}
                                         className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-500 hover:bg-white transition-colors disabled:opacity-50"
                                     >
@@ -218,7 +217,7 @@ const CourierOrdersHistory = () => {
                                         onClick={() => {
                                             const newPage = currentPage + 1;
                                             setCurrentPage(newPage);
-                                            fetchOrders(searchQuery, newPage);
+                                            fetchOrders({ page: newPage });
                                         }}
                                         className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-500 hover:bg-white transition-colors disabled:opacity-50"
                                     >
