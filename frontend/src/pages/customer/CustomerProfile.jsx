@@ -8,6 +8,7 @@ const CustomerProfile = () => {
     const { user, updateUser } = useAuth();
     console.log("Данные пользователя из контекста:", user);
     const [saving, setSaving] = useState(false);
+    const [balance, setBalance] = useState(0);
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -16,31 +17,44 @@ const CustomerProfile = () => {
         email: '',
         address: ''
     });
-
-    useEffect(() => {
-        const fetchProfile = async () => {
-            try {
-                const token = localStorage.getItem('access_token');
-                const response = await fetch('/api/v1/client/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+    const fetchBalance = async () => {
+        try {
+            const response = await fetch('/api/v1/client/balance', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+            });
+            if (response.ok) {
                 const data = await response.json();
-
-                setFormData({
-                    firstName: data.full_name?.split(' ')[0] || '',
-                    lastName: data.full_name?.split(' ')[1] || '',
-                    phone: data.phone || '',
-                    email: data.email || '',
-                    address: data.address || ''
-                });
-
-                updateUser(data);
-            } catch (error) {
-                console.error("Ошибка загрузки профиля:", error);
+                setBalance(data.balance);
             }
-        };
+        } catch (error) {
+            console.error("Ошибка загрузки баланса:", error);
+        }
+    };
 
+    const fetchProfile = async () => {
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch('/api/v1/client/me', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+
+            setFormData({
+                firstName: data.full_name?.split(' ')[0] || '',
+                lastName: data.full_name?.split(' ')[1] || '',
+                phone: data.phone || '',
+                email: data.email || '',
+                address: data.address || ''
+            });
+
+            updateUser(data);
+        } catch (error) {
+            console.error("Ошибка загрузки профиля:", error);
+        }
+    };
+    useEffect(() => {
         fetchProfile();
+        fetchBalance();
     }, []);
 
     const handleSave = async (e) => {
@@ -96,7 +110,7 @@ const CustomerProfile = () => {
                     <div className="flex items-center gap-6">
                         <div className="hidden md:flex items-center gap-2 rounded-full bg-[#f8fcf8] border border-[#e7f3e7] px-4 py-1.5 shadow-sm">
                             <span className="text-[10px] font-black uppercase text-[#4c9a4c] tracking-widest">Баланс</span>
-                            <span className="text-sm font-bold text-[#0d1b0d]">1 250 ₽</span>
+                            <span className="text-sm font-bold text-[#0d1b0d]">{balance.toLocaleString()} ₽</span>
                             <button className="ml-2 flex size-5 items-center justify-center rounded-full bg-primary text-[#0d1b0d] hover:scale-110 transition-transform"
                                     onClick={() => navigate('/top-up-balance')}>
                                 <span className="material-symbols-outlined text-[16px] font-bold">add</span>

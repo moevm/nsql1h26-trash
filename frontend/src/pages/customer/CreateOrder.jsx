@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SidebarCustomer from './SidebarCustomer.jsx';
 import {useAuth} from "../../AuthContext.jsx";
 
 const CreateOrder = () => {
     const navigate = useNavigate();
+    const [balance, setBalance] = useState(0);
+
     const [volume, setVolume] = useState(8);
     const [wasteType, setWasteType] = useState('Бытовой');
     const [city, setCity] = useState('Москва');
@@ -15,19 +17,37 @@ const CreateOrder = () => {
     const [entrance, setEntrance] = useState('');
     const [floor, setFloor] = useState('');
     const [intercom, setIntercom] = useState('');
-    const { balance, setBalance } = useAuth();
-    const [errors, setErrors] = useState({});
+    const { user, token, setBalance: setGlobalBalance } = useAuth();
+    const accessToken = token || localStorage.getItem('access_token');
+
+    const fetchBalance = async () => {
+        try {
+            const response = await fetch('/api/v1/client/balance', {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setBalance(data.balance);
+                if (setGlobalBalance) setGlobalBalance(data.balance);
+            }
+        } catch (error) {
+            console.error("Ошибка загрузки баланса:", error);
+        }
+    };
+
     const updatePrice = (newVolume) => {
         const basePrice = newVolume * 500 + 1000;
         setPrice(basePrice);
     };
+
     const handleCreateOrder = async () => {
-        console.log("DEBUG: Кнопка нажата, начинаем сбор данных...");
         const totalCost = price + 500;
+
         if (balance < totalCost) {
             alert("Недостаточно средств на балансе!");
             return;
         }
+
         const orderData = {
             waste_type: wasteType,
             volume: Number(volume),
@@ -40,47 +60,34 @@ const CreateOrder = () => {
             scheduled_at: new Date().toISOString(),
             description: comment,
             status: "searching",
-            price: price + 500
+            price: totalCost
         };
 
-        console.log("DEBUG: Отправляемый JSON:", JSON.stringify(orderData));
-        if (!street || !house) {
-            setErrors({ address: "Это поле обязательно для заполнения" });
-            alert("Введите адрес полностью");
-            return;
-        }
-
         try {
-            console.log("DEBUG: Пытаемся отправить fetch...");
-
             const response = await fetch('/api/v1/orders/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    'Authorization': `Bearer ${accessToken}`
                 },
                 body: JSON.stringify(orderData)
             });
 
-            console.log("DEBUG: Ответ получен, статус:", response.status);
-
             if (response.ok) {
-                console.log("DEBUG: Успех, переходим в дашборд");
-                const result = await response.json();
-                const orderKey = result._key;
                 setBalance(prev => prev - totalCost);
-                alert("Заказ успешно создан! Сумма зарезервирована.");
-                navigate(`/order/${orderKey}`);
+                alert("Заказ успешно создан!");
+                navigate(`/customer-dashboard`);
             } else {
                 const err = await response.json();
-                console.error("DEBUG: Ошибка бэкенда:", err);
                 alert("Ошибка: " + (err.detail || "Не удалось создать заказ"));
             }
         } catch (e) {
-            console.error("DEBUG: Исключение при fetch:", e);
-            alert("Ошибка сети (см. консоль F12)");
+            alert("Ошибка сети");
         }
     };
+    useEffect(() => {
+        fetchBalance();
+    }, [accessToken]);
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#f6f8f6] font-display text-[#0d1b0d] antialiased">
             <SidebarCustomer activePage="/create-order" />

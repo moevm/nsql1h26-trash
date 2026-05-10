@@ -1,12 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SidebarCustomer from './SidebarCustomer.jsx';
+import { useAuth } from '../../AuthContext';
 
 const TopUpBalance = () => {
     const [amount, setAmount] = useState('500');
     const [paymentMethod, setPaymentMethod] = useState('card');
     const [customAmount, setCustomAmount] = useState('');
+    const [balance, setBalance] = useState(0);
+    const { user } = useAuth();
 
     const quickAmounts = ['100', '500', '1000'];
+    const fetchBalance = async () => {
+        try {
+            const response = await fetch('/api/v1/client/balance', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setBalance(data.balance);
+            }
+        } catch (error) {
+            console.error("Ошибка загрузки баланса:", error);
+        }
+    };
+    const topUpBalance = async () => {
+        const finalAmount = Number(amount);
+        if (!finalAmount || finalAmount < 50) {
+            alert("Минимальная сумма пополнения — 50 ₽");
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/v1/client/top-up-balance', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    amount: finalAmount,
+                    payment_method: paymentMethod
+                })
+            });
+
+            if (response.ok) {
+                alert("Баланс успешно пополнен!");
+                setCustomAmount('');
+                fetchBalance();
+            } else {
+                const errorData = await response.json();
+                alert("Ошибка: " + (errorData.detail || "Не удалось пополнить баланс"));
+            }
+        } catch (error) {
+            console.error("Ошибка при пополнении:", error);
+            alert("Произошла ошибка соединения с сервером");
+        }
+    };
+    useEffect(() => {
+        fetchBalance();
+    }, []);
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#f8fcf8] font-['Public_Sans'] text-[#0d1b0d]">
@@ -24,8 +76,8 @@ const TopUpBalance = () => {
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-3">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-bold text-[#0d1b0d] leading-tight">Алексей П.</p>
-                                <p className="text-xs text-[#586458]">Частный клиент</p>
+                                <p className="text-sm font-bold text-[#0d1b0d] leading-tight">{user?.full_name || "Пользователь"}</p>
+                                <p className="text-xs text-[#586458]">{user?.role === 'customer' ? 'Частный клиент' : 'Пользователь'}</p>
                             </div>
                             <div
                                 className="size-10 rounded-full bg-gray-200 bg-cover bg-center ring-2 ring-white"
@@ -45,7 +97,7 @@ const TopUpBalance = () => {
                                     <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
                                     <span className="text-sm font-medium uppercase tracking-wider">Текущий баланс</span>
                                 </div>
-                                <h1 className="text-4xl md:text-5xl font-bold tracking-tight">1 250 ₽</h1>
+                                <h1 className="text-4xl md:text-5xl font-bold tracking-tight">{balance.toLocaleString()} ₽</h1>
                             </div>
                             <div className="absolute right-0 top-0 -mt-10 -mr-10 h-64 w-64 rounded-full bg-[#42f042] opacity-10 blur-3xl"></div>
                         </section>
@@ -91,7 +143,7 @@ const TopUpBalance = () => {
                                                 </div>
                                                 <input
                                                     type="number"
-                                                    value={customAmount}
+                                                    value={amount}
                                                     onChange={(e) => {setCustomAmount(e.target.value); setAmount(e.target.value);}}
                                                     placeholder="0"
                                                     className="block w-full rounded-lg border-slate-200 py-3.5 pl-10 pr-12 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#42f042] focus:border-[#42f042] text-lg outline-none"
@@ -135,7 +187,9 @@ const TopUpBalance = () => {
                                                 <span className="text-sm text-slate-500">К оплате:</span>
                                                 <span className="text-xl font-bold text-slate-900">{amount || 0} ₽</span>
                                             </div>
-                                            <button className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#42f042] py-3 text-base font-bold text-[#111811] shadow-md hover:bg-opacity-90 transition-all active:scale-95">
+                                            <button
+                                                onClick={topUpBalance}
+                                                className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#42f042] py-3 text-base font-bold text-[#111811] shadow-md hover:bg-opacity-90 transition-all active:scale-95">
                                                 <span className="material-symbols-outlined text-[20px]">lock</span>
                                                 Пополнить баланс
                                             </button>
@@ -144,7 +198,6 @@ const TopUpBalance = () => {
                                             </p>
                                         </div>
                                     </div>
-
                                 </div>
                             </div>
                         </div>

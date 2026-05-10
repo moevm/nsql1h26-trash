@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
 
 const ChangePassword = () => {
     const navigate = useNavigate();
@@ -7,6 +8,7 @@ const ChangePassword = () => {
     const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const { user, token } = useAuth();
 
     const toggleVisibility = (field) => {
         setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
@@ -33,13 +35,17 @@ const ChangePassword = () => {
             return;
         }
 
-        setLoading(true);
+        setLoading(false);
+        const endpoint = user?.role === 'courier'
+            ? '/api/v1/courier/change-password'
+            : '/api/v1/client/change-password';
         try {
-            const response = await fetch('/api/v1/courier/change-password', {
+            setLoading(true);
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    'Authorization': `Bearer ${token || localStorage.getItem('access_token')}`
                 },
                 body: JSON.stringify({
                     old_password: passwords.old,
