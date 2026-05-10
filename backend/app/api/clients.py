@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps import get_current_active_client
 from app.models.user import UserResponse, ProfileUpdateCustomer
-from app.models.user import BalanceTopUpRequest, BalanceTopUpResponse
+from app.models.user import BalanceTopUpRequest, BalanceTopUpResponse, PasswordChangeRequest
 from app.db.users import update_user_profile_in_db, top_up_balance, get_user_balance
+from app.services.update_password import update_user_password
 
 router = APIRouter(
     prefix="/client",
@@ -84,3 +85,18 @@ async def get_current_balance(
             status_code=500,
             detail=f"Не удалось получить баланс: {str(e)}"
         )  
+    
+
+
+@router.post("/change-password")
+async def change_password(
+        payload: PasswordChangeRequest,
+        current_user = Depends(get_current_active_client)
+):
+    update_user_password(
+        user_id=current_user.id,
+        old_password=payload.old_password,
+        new_password=payload.new_password
+    )
+
+    return {"status": "success", "message": "Пароль обновлен"}    

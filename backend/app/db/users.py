@@ -1,8 +1,9 @@
 from app.db.session import arango_instance
 from fastapi import HTTPException, status
-from app.db.orders import USERS_COLLECTION
 from datetime import datetime
 from app.db.events import log_event
+
+USERS_COLLECTION = "Users"
 
 def update_user_profile_in_db(user_id: str, update_data: dict):
     db = arango_instance.db
@@ -16,7 +17,6 @@ def update_user_profile_in_db(user_id: str, update_data: dict):
         if not user_id:
             raise ValueError("user_id is empty")
             
-        # Обновляем документ по ключу
         users_col.update({
             "_key": str(user_id), 
             **filtered_data
@@ -103,7 +103,7 @@ def top_up_balance(user_key: str, amount: float, payment_method: str = "card"):
             "user_key": user_key,
             "amount": amount,
             "payment_method": payment_method,
-            "now": datetime.utcnow().isoformat()
+            "now": datetime.now().isoformat(),
         }
     )
 
@@ -145,3 +145,89 @@ def get_user_balance(user_key: str):
         "user_id": user_key,
         "full_name": user.get("full_name")
     }
+
+
+def deduct_order_payment(user_key: str, amount: float, order_key: str = None):
+    """
+    Списание денег за заказ с баланса пользователя.
+    Возвращает True в случае успеха, иначе бросает исключение.
+    """
+    db = arango_instance.db
+
+    query = """
+    LET user = DOCUMENT('Users', @user_key)
+    LET current_balance = TO_NUMBER(user.balance || 0)
+    
+    FILTER current_balance >= @amount
+    
+    UPDATE user WITH {
+        balance: current_balance - @amount,
+        updated_at: @now
+    } IN Users
+    
+    RETURN { success: true, previous_balance: current_balance, new_balance: current_balance - @amount }
+    """
+
+    cursor = db.aql.execute(query, bind_vars={
+        "user_key": user_key,
+        "amount": amount,
+        "now": datetime.now().isoformat()
+    })
+
+    result = list(cursor)[0]
+
+    if not result.get("success"):
+        raise ValueError("Недостаточно средств на балансе")
+
+    log_event(
+        event_type="order_payment",
+        title="Списание за заказ",
+        description=f"Списание {amount} ₽ за заказ",
+        related_id=order_key,
+        related_type="Order"
+    )
+
+    return True
+
+
+
+def payout_to_courier(courier_key: str, amount: float, order_key: str = None):
+    """
+    Начисление денег на баланс курьера.
+    """
+    db = arango_instance.db
+
+    query = """
+    LET courier = DOCUMENT('Users', @courier_key)
+    LET current_balance = TO_NUMBER(courier.balance || 0)
+    LET new_balance = current_balance + @amount
+
+    UPDATE courier WITH {
+        balance: new_balance,
+        updated_at: @now
+    } IN Users
+
+    RETURN {
+        success: true,
+        previous_balance: current_balance,
+        new_balance: new_balance
+    }
+    """
+
+    cursor = db.aql.execute(query, bind_vars={
+        "courier_key": courier_key,
+        "amount": amount,
+        "now": datetime.now().isoformat()
+    })
+
+    result = list(cursor)[0]
+
+    log_event(
+        event_type="balance_payout",
+        title="Начисление курьеру",
+        description=f"Начислено {amount} ₽ за заказ {order_key}",
+        related_id=order_key,
+        related_type="Order"
+    )
+
+    return result

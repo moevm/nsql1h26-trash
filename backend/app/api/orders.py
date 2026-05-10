@@ -43,6 +43,17 @@ async def create_new_order(
                   related_type="order",)
 
         return new_order
+    
+    except ValueError as e:
+        if "недостаточно средств" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Недостаточно средств на балансе для создания заказа"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
 
     except Exception as e:
         print(f"!!! ОШИБКА ПРИ СОЗДАНИИ ЗАКАЗА: {str(e)}")
