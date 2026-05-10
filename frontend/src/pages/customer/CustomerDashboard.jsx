@@ -6,26 +6,76 @@ import { useAuth } from '../../AuthContext';
 
 const CustomerDashboard = () => {
     const navigate = useNavigate();
-    const { user, balance } = useAuth();
+    const { user, token, setBalance: setGlobalBalance } = useAuth();
+    const [balance, setBalance] = useState(0);
     const [orders, setOrders] = useState([]);
+    const [allOrders, setAllOrders] = useState([]);
+    const activeCount = allOrders.filter(o => o.status === 'active' || o.status === 'searching').length;
+    const doneCount = allOrders.filter(o => o.status === 'done' || o.status === 'completed').length;
+    const [currentPage, setCurrentPage] = useState(0);
+    const limit = 5;
+    const [currentPageData, setCurrentPageData] = useState([]);
+
+    const fetchBalance = async () => {
+        try {
+            const response = await fetch('/api/v1/client/balance', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setBalance(data.balance);
+            }
+        } catch (error) {
+            console.error("Ошибка загрузки баланса:", error);
+        }
+    };
+    const fetchOrders = async () => {
+        try {
+            const skip = currentPage * limit;
+            const response = await fetch(`/api/v1/orders/my?skip=${skip}&limit=${limit}`, {
+                headers: { 'Authorization': `Bearer ${token || localStorage.getItem('access_token')}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const relevantOrders = data.filter(o =>
+                    o.status === 'searching' || o.status === 'active'
+                );
+                setOrders(relevantOrders);
+                setCurrentPageData(data);
+            }
+        } catch (e) {
+            console.error("Ошибка:", e);
+        }
+    };
+
+    const fetchStatsData = async () => {
+        try {
+            const response = await fetch('/api/v1/orders/my', {
+                headers: { 'Authorization': `Bearer ${token || localStorage.getItem('access_token')}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setAllOrders(data);
+            }
+        } catch (e) {
+            console.error("Ошибка загрузки статистики:", e);
+        }
+    };
+
+    const totalSpent = allOrders
+        .filter(o => o.status === 'done' || o.status === 'completed')
+        .reduce((sum, order) => sum + (order.price || 0), 0);
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const response = await fetch('/api/v1/orders/my', {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const activeOrders = data.filter(o => o.status === 'active' || o.status === 'searching');
-                    setOrders(activeOrders);
-                }
-            } catch (e) {
-                console.error("Ошибка загрузки заказов:", e);
-            }
-        };
-        fetchOrders();
+        fetchBalance();
+        fetchStatsData();
     }, []);
+
+    useEffect(() => {
+        fetchOrders();
+    }, [currentPage]);
+
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#f6f8f6] font-display">
             <Sidebar activePage="orders" />
@@ -48,7 +98,6 @@ const CustomerDashboard = () => {
                         </div>
                         <div className="flex items-center gap-3 border-l border-slate-100 pl-6">
                             <div className="text-right hidden sm:block">
-                                {/* Динамическое имя */}
                                 <p className="text-sm font-bold text-[#0d1b0d] leading-tight">
                                     {user?.full_name || "Пользователь"}
                                 </p>
@@ -56,7 +105,6 @@ const CustomerDashboard = () => {
                                     {user?.role === 'customer' ? 'Частный клиент' : 'Пользователь'}
                                 </p>
                             </div>
-                            {/* Динамическая аватарка */}
                             <div className="size-10 rounded-full bg-slate-200 border-2 border-white shadow-sm"
                                  style={{
                                      backgroundImage: `url('https://ui-avatars.com/api/?name=${user?.full_name || 'User'}&background=42f042&color=0d1b0d')`,
@@ -84,9 +132,24 @@ const CustomerDashboard = () => {
 
                     {/* Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard icon="local_shipping" label="В пути" value="1 заказ" color="blue" />
-                        <StatCard icon="check_circle" label="Выполнено" value="12" color="green" />
-                        <StatCard icon="payments" label="Потрачено" value="4 200 ₽" color="purple" />
+                        <StatCard
+                            icon="local_shipping"
+                            label="В пути"
+                            value={`${activeCount} ${activeCount === 1 ? 'заказ' : activeCount > 1 && activeCount < 5 ? 'заказа' : 'заказов'}`}
+                            color="blue"
+                        />
+                        <StatCard
+                            icon="check_circle"
+                            label="Выполнено"
+                            value={doneCount.toString()}
+                            color="green"
+                        />
+                        <StatCard
+                            icon="payments"
+                            label="Потрачено"
+                            value={`${totalSpent.toLocaleString()} ₽`}
+                            color="purple"
+                        />
                     </div>
 
                     <div className="space-y-4">
@@ -105,12 +168,12 @@ const CustomerDashboard = () => {
                                     <div className="p-6 md:p-8 flex flex-col md:flex-row justify-between gap-8">
                                         <div className="space-y-6">
                                             <div className="flex flex-wrap items-center gap-3">
-                            <span className={`px-3 py-1 text-[10px] font-black uppercase rounded-full border flex items-center gap-1.5 ${
-                                order.status === 'active' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                            }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${order.status === 'active' ? 'bg-blue-500' : 'bg-amber-500'}`}></span>
-                                {order.status === 'active' ? 'Машина в пути' : 'Поиск курьера'}
-                            </span>
+                                                <span className={`px-3 py-1 text-[10px] font-black uppercase rounded-full border flex items-center gap-1.5 ${
+                                                    order.status === 'active' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                                                }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${order.status === 'active' ? 'bg-blue-500' : 'bg-amber-500'}`}></span>
+                                                    {order.status === 'active' ? 'Машина в пути' : 'Поиск курьера'}
+                                                </span>
                                                 <span className="text-sm font-bold text-[#0d1b0d]">Заказ #{order._key?.substring(0, 8)}</span>
                                             </div>
 
@@ -143,6 +206,30 @@ const CustomerDashboard = () => {
                                 </div>
                             ))
                         )}
+                        <div className="flex items-center justify-center gap-6 mt-8">
+                            <button
+                                disabled={currentPage === 0}
+                                onClick={() => setCurrentPage(prev => prev - 1)}
+                                className="flex items-center justify-center size-10 rounded-full bg-white border border-[#e7f3e7] text-[#0d1b0d] shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#f6f8f6] transition-all"
+                            >
+                                <span className="material-symbols-outlined">chevron_left</span>
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-black uppercase text-[#586458] tracking-widest">Страница</span>
+                                <span className="text-sm font-bold text-[#0d1b0d] bg-[#42f042]/20 px-3 py-1 rounded-lg">
+                                    {currentPage + 1}
+                                </span>
+                            </div>
+
+                            <button
+                                disabled={currentPageData.length < limit}
+                                onClick={() => setCurrentPage(prev => prev + 1)}
+                                className="flex items-center justify-center size-10 rounded-full bg-white border border-[#e7f3e7] text-[#0d1b0d] shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#f6f8f6] transition-all"
+                            >
+                                <span className="material-symbols-outlined">chevron_right</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </main>

@@ -6,34 +6,49 @@ const OrderHistory = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [filter, setFilter] = useState('all');
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(0);
     const itemsPerPage = 7;
 
-    useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const response = await fetch('/api/v1/orders/my', {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setOrders(data);
-                }
-            } catch (e) {
-                console.error("Ошибка загрузки:", e);
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [wasteTypeFilter, setWasteTypeFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('created_at');
+    const [sortOrder, setSortOrder] = useState('desc');
+
+
+    const fetchOrders = async () => {
+        try {
+            const skip = currentPage * itemsPerPage;
+            let url = `/api/v1/orders/my?skip=${skip}&limit=${itemsPerPage}&sort_by=${sortBy}&sort_order=${sortOrder}`;
+
+            if (statusFilter !== 'all') {
+                url += `&status_m=${statusFilter}`;
             }
-        };
+
+            if (wasteTypeFilter !== 'all') {
+                url += `&waste_type=${wasteTypeFilter}`;
+            }
+
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setOrders(data);
+            }
+        } catch (e) {
+            console.error("Ошибка загрузки:", e);
+        }
+    };
+
+    useEffect(() => {
         fetchOrders();
-    }, []);
+    }, [currentPage, statusFilter, wasteTypeFilter, sortBy, sortOrder]);
 
-    const filteredOrders = filter === 'all'
-        ? orders
-        : orders.filter(o => o.status === filter);
-
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentOrders = filteredOrders.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+    const handleFilterChange = (e) => {
+        setFilter(e.target.value);
+        setCurrentPage(0);
+    };
 
     return (
         <div className="flex min-h-screen w-full flex-col md:flex-row bg-[#f6f8f6] font-display text-[#111811] antialiased">
@@ -58,25 +73,13 @@ const OrderHistory = () => {
                     {/* Filters + Controls */}
                     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-4 items-center justify-between">
                         <div className="flex flex-wrap items-center gap-3">
-                            {/* Кнопка "За все время" */}
-                            <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors border border-slate-200">
-                                <span className="material-symbols-outlined text-[20px] text-slate-500">calendar_month</span>
-                                За все время
-                                <span className="material-symbols-outlined text-[18px] text-slate-400">expand_more</span>
-                            </button>
-
-                            {/* Кнопка "Тип мусора" */}
-                            <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors border border-slate-200">
-                                <span className="material-symbols-outlined text-[20px] text-slate-500">recycling</span>
-                                Тип мусора
-                                <span className="material-symbols-outlined text-[18px] text-slate-400">expand_more</span>
-                            </button>
 
                             <div className="relative flex items-center bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
                                 <span className="material-symbols-outlined text-[20px] text-slate-500 ml-3">filter_list</span>
                                 <select
                                     className="bg-transparent py-2 pl-2 pr-8 text-sm font-medium text-slate-700 focus:outline-none cursor-pointer appearance-none"
-                                    onChange={(e) => setFilter(e.target.value)}
+                                    value={statusFilter}
+                                    onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(0); }}
                                 >
                                     <option value="all">Все статусы</option>
                                     <option value="searching">В поиске</option>
@@ -85,17 +88,52 @@ const OrderHistory = () => {
                                 </select>
                                 <span className="material-symbols-outlined text-[18px] text-slate-400 absolute right-2 pointer-events-none">expand_more</span>
                             </div>
-                        </div>
 
-                        {/* Search */}
-                        <div className="relative w-full md:w-64">
-                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <span className="material-symbols-outlined text-slate-400">search</span>
-                            </span>
-                            <input
-                                className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
-                                placeholder="Поиск по ID или адресу..." type="text"
-                            />
+                            <div className="relative flex items-center bg-slate-50 rounded-lg border border-slate-200">
+                                <span className="material-symbols-outlined text-[20px] text-slate-500 ml-3">recycling</span>
+                                <select
+                                    className="bg-transparent py-2 pl-2 pr-8 text-sm font-medium text-slate-700 focus:outline-none cursor-pointer appearance-none"
+                                    value={wasteTypeFilter}
+                                    onChange={(e) => { setWasteTypeFilter(e.target.value); setCurrentPage(0); }}
+                                >
+                                    <option value="all">Любой тип мусора</option>
+                                    <option value="Бытовой">Бытовой</option>
+                                    <option value="Строительный">Строительный</option>
+                                    <option value="Мебель">Мебель</option>
+                                </select>
+                                <span className="material-symbols-outlined text-[18px] text-slate-400 absolute right-2 pointer-events-none">expand_more</span>
+                            </div>
+
+                            <div className="relative flex items-center bg-slate-50 rounded-lg border border-slate-200">
+                                <span className="material-symbols-outlined text-[20px] text-slate-500 ml-3">sort</span>
+                                <select
+                                    className="bg-transparent py-2 pl-2 pr-8 text-sm font-medium text-slate-700 focus:outline-none cursor-pointer appearance-none"
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                >
+                                    <option value="created_at">По дате</option>
+                                    <option value="price">По цене</option>
+                                    <option value="waste_type">По типу</option>
+                                </select>
+                                <button
+                                    onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                    className="px-2 text-slate-500 hover:text-primary transition-colors"
+                                    title="Сменить направление сортировки"
+                                >
+                                <span className="material-symbols-outlined text-[20px]">
+                                    {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                                </span>
+                                </button>
+                            </div>
+                            <div className="group relative flex items-center">
+                                <span className="material-symbols-outlined text-[18px] text-slate-400 cursor-help hover:text-slate-600 transition-colors">
+                                    help
+                                </span>
+                                <div className="absolute bottom-full left-1/2 mb-2 w-48 -translate-x-1/2 rounded-lg bg-slate-800 px-3 py-2 text-center text-[11px] font-medium text-white opacity-0 shadow-xl transition-all group-hover:opacity-100 pointer-events-none z-20">
+                                    Вы можете нажать на кнопку "По дате" и там появиться список полей, по которым можно произвести сортировку
+                                    <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -115,7 +153,7 @@ const OrderHistory = () => {
                                 </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                {currentOrders.map((order) => (
+                                {orders.map((order) => (
                                     <tr
                                         key={order._key}
                                         onClick={() => navigate(`/order/${order._key}`)}
@@ -154,31 +192,23 @@ const OrderHistory = () => {
                     <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-4">
                         <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                             <p className="text-sm text-slate-500">
-                                Показано <span className="font-medium text-slate-900">1</span> - <span className="font-medium text-slate-900">10</span> из <span className="font-medium text-slate-900">97</span> результатов
+                                Страница <span className="font-medium text-slate-900">{currentPage + 1}</span>
                             </p>
                             <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                                 <button
-                                    disabled={currentPage === 1}
+                                    disabled={currentPage === 0}
                                     onClick={() => setCurrentPage(prev => prev - 1)}
                                     className="px-3 py-2 rounded-l-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
                                 >
                                     Назад
                                 </button>
-                                {[...Array(totalPages)].map((_, i) => (
-                                    <button
-                                        key={i + 1}
-                                        onClick={() => setCurrentPage(i + 1)}
-                                        className={`px-4 py-2 border text-sm font-medium ${
-                                            currentPage === i + 1
-                                                ? 'z-10 bg-primary/10 border-primary text-primary font-bold'
-                                                : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        {i + 1}
-                                    </button>
-                                ))}
+
+                                <span className="px-4 py-2 border border-slate-300 bg-slate-50 text-sm font-bold text-primary">
+                                    {currentPage + 1}
+                                </span>
+
                                 <button
-                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    disabled={orders.length < itemsPerPage}
                                     onClick={() => setCurrentPage(prev => prev + 1)}
                                     className="px-3 py-2 rounded-r-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
                                 >
