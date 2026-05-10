@@ -5,7 +5,7 @@ from app.db.orders import create_order, get_my_orders, get_order_by_id_for_clien
 from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
-from typing import Optional
+from typing import Optional, Literal
 from app.db.events import log_event
 import os
 import uuid
@@ -69,11 +69,25 @@ async def create_new_order(
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
     current_user: UserResponse = Depends(get_current_active_client),
-    status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+    status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)"),
+    waste_type: Optional[str] = Query(None, description="Фильтр по типу мусора"),
+    skip: int = Query(0, ge=0, description="Сколько записей пропустить"),
+    limit: int = Query(20, ge=1, le=100, description="Количество записей на странице"),
+    sort_by: Literal["created_at", "price", "waste_type"] = Query("created_at", description="Поле для сортировки"),
+    sort_order: Literal["asc", "desc"] = Query("desc", description="Направление сортировки")
+
 ):
     """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
     try:
-        orders = get_my_orders(client_key=current_user.id, status_filter=status_m)
+        orders = get_my_orders(
+            client_key=current_user.id, 
+            status_filter=status_m,
+            waste_type=waste_type,
+            skip=skip,
+            limit=limit,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
         return orders
     except Exception as e:
         raise HTTPException(
