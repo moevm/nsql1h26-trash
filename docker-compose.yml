@@ -28,6 +28,8 @@ services:
       TRASH_DB_URL: http://db:8529
       TRASH_DB_NAME: trash_db
       TRASH_DB_PASSWORD: ""
+      # Установить true для загрузки демо-данных (20 курьеров, 20 заказчиков, 45 заказов)
+      TRASH_SEED_DEMO_DATA: "true"
     depends_on:
       db:
         condition: service_healthy
