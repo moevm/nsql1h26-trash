@@ -1,3 +1,9 @@
+"""
+Генерация демонстрационных данных при старте контейнера.
+Активируется переменной окружения TRASH_SEED_DEMO_DATA=true.
+Идемпотентна: повторный запуск ничего не делает, если данные уже есть.
+"""
+
 import random
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
@@ -104,7 +110,7 @@ def seed_demo_data() -> None:
         waste = random.choice(_WASTE_TYPES)
         volume = round(random.uniform(1, 40), 1)
         price = round(volume * random.uniform(400, 700))
-        is_done = n < 30
+        is_done = n < 35
         status = "done" if is_done else random.choice(_STATUSES_OPEN)
 
         customer_key = random.choice(customer_keys)
@@ -151,4 +157,4 @@ def seed_demo_data() -> None:
             })
 
     print(f"[SEED] Демо-данные загружены: {len(courier_keys)} курьеров, "
-          f"{len(customer_keys)} заказчиков, 45 заказов (30 выполненных).")
+          f"{len(customer_keys)} заказчиков, 45 заказов (35 выполненных).")

@@ -8,6 +8,7 @@ from app.api.deps import get_current_active_courier
 from app.db.session import arango_instance
 from app.models.order import Transaction, WithdrawRequest
 from app.services.update_password import update_user_password
+from app.db.events import log_event
 
 router = APIRouter(
     prefix="/courier",
@@ -138,6 +139,15 @@ async def withdraw_funds(
                 status_code=400,
                 detail="Недостаточно средств или ошибка транзакции"
             )
+
+        card_mask = f"**** {clean_card[-4:]}"
+        log_event(
+            event_type="withdrawal",
+            title="Вывод средств курьером",
+            description=f"Курьер: {current_user.full_name} • {payload.amount} ₽ на карту {card_mask}",
+            related_id=current_user.id,
+            related_type="user",
+        )
 
         return {
             "status": "success",

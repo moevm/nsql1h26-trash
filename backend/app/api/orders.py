@@ -5,7 +5,8 @@ from app.db.orders import create_order, get_my_orders, get_order_by_id_for_clien
 from app.api.deps import get_current_active_client, get_current_active_courier
 from app.models.user import UserResponse
 from app.db.session import arango_instance
-from typing import Optional
+from typing import Optional, Literal
+from app.db.events import log_event
 import os
 import uuid
 
@@ -35,8 +36,24 @@ async def create_new_order(
     """Создание нового заказа и создание связи Owns"""
     try:
         new_order = create_order(order_in, client_key=current_user.id, price=order_in.price)
+        log_event(event_type="order_created", 
+                  title = f"Новая заявка на вывоз", 
+                  description=f"Клиент: {current_user.full_name} - {order_in.waste_type}", 
+                  related_id=new_order.id, 
+                  related_type="order",)
 
         return new_order
+    
+    except ValueError as e:
+        if "недостаточно средств" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Недостаточно средств на балансе для создания заказа"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
 
     except Exception as e:
         print(f"!!! ОШИБКА ПРИ СОЗДАНИИ ЗАКАЗА: {str(e)}")
@@ -52,11 +69,25 @@ async def create_new_order(
 @router.get("/my", response_model=list[Order])
 async def get_my_orders_endpoint(
     current_user: UserResponse = Depends(get_current_active_client),
-    status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)")
+    status_m: Optional[str] = Query(None, description="Фильтр по статусу (searching, active, done)"),
+    waste_type: Optional[str] = Query(None, description="Фильтр по типу мусора"),
+    skip: int = Query(0, ge=0, description="Сколько записей пропустить"),
+    limit: int = Query(20, ge=1, le=100, description="Количество записей на странице"),
+    sort_by: Literal["created_at", "price", "waste_type"] = Query("created_at", description="Поле для сортировки"),
+    sort_order: Literal["asc", "desc"] = Query("desc", description="Направление сортировки")
+
 ):
     """Просмотр истории заказов текущего клиента (Сценарий 2.4)"""
     try:
-        orders = get_my_orders(client_key=current_user.id, status_filter=status_m)
+        orders = get_my_orders(
+            client_key=current_user.id, 
+            status_filter=status_m,
+            waste_type=waste_type,
+            skip=skip,
+            limit=limit,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
         return orders
     except Exception as e:
         raise HTTPException(
@@ -104,6 +135,23 @@ async def update_order_status(
             raise HTTPException(status_code=404, detail="Заказ не найден")
         if result["error"] == "no_photo":
             raise HTTPException(status_code=400, detail="Сначала загрузите фото подтверждения!")
+
+    if status_update.status == "done":
+        log_event(
+            event_type="order_completed",
+            title=f'Заказ ORD-{order_id} выполнен',
+            description=f"Курьер: {current_courier.full_name}",
+            related_id=order_id,
+            related_type="order",
+        )    
+    elif status_update.status == "active":
+        log_event(
+            event_type="order_accepted",
+            title=f'Заказ ORD-{order_id} принят курьером',
+            description=f"Курьер: {current_courier.full_name}",
+            related_id=order_id,
+            related_type="order",
+        )  
 
     return {"message": f"Статус успешно изменен на {status_update.status}"}
 

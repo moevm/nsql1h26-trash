@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Literal
 
 
 class CustomerRegisterRequest(BaseModel):
@@ -60,3 +60,18 @@ class AdminRegisterRequest(BaseModel):
     phone: str
     password: str
     confirm_password: str
+
+
+class BalanceTopUpRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Сумма пополнения")
+    payment_method: Literal["card", "sbp", "other"] = Field(
+        "card", description="Метод оплаты"
+    )
+
+
+class BalanceTopUpResponse(BaseModel):
+    success: bool
+    new_balance: float
+    amount: float
+    transaction_id: str
+    message: str
