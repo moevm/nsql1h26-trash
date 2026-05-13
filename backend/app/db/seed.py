@@ -1,9 +1,3 @@
-"""
-Генерация демонстрационных данных при старте контейнера.
-Активируется переменной окружения TRASH_SEED_DEMO_DATA=true.
-Идемпотентна: повторный запуск ничего не делает, если данные уже есть.
-"""
-
 import random
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
@@ -73,6 +67,10 @@ def seed_demo_data() -> None:
         db.create_collection("At", edge=True)
     at_col = db.collection("At")
 
+    if not db.has_collection("Transactions"):
+        db.create_collection("Transactions")
+    transactions_col = db.collection("Transactions")
+
     courier_keys = []
     for i, name in enumerate(_COURIER_NAMES):
         doc = users_col.insert({
@@ -110,7 +108,7 @@ def seed_demo_data() -> None:
         waste = random.choice(_WASTE_TYPES)
         volume = round(random.uniform(1, 40), 1)
         price = round(volume * random.uniform(400, 700))
-        is_done = n < 35
+        is_done = n < 30
         status = "done" if is_done else random.choice(_STATUSES_OPEN)
 
         customer_key = random.choice(customer_keys)
@@ -156,5 +154,21 @@ def seed_demo_data() -> None:
                 "started_at": _now_minus(days_ago - 0.3),
             })
 
+            transactions_col.insert({
+                "courier_id": str(courier_key), # Важно: как строка
+                "amount": float(price),
+                "type": "order_payout",
+                "status": "success",
+                "timestamp": _now_minus(days_ago - 0.4), # Чуть позже начала
+                "description": f"Зачисление за заказ #{order_key}"
+            })
+
+            if db.has_collection("History"):
+                db.collection("History").insert({
+                    "_from": f"Orders/{order_key}",
+                    "_to": f"Transactions/{tx_meta['_key'] if 'tx_meta' in locals() else 'dummy'}", # если сохранял результат insert
+                    "created_at": _now_minus(days_ago - 0.4)
+                })
+
     print(f"[SEED] Демо-данные загружены: {len(courier_keys)} курьеров, "
-          f"{len(customer_keys)} заказчиков, 45 заказов (35 выполненных).")
+          f"{len(customer_keys)} заказчиков, 45 заказов (30 выполненных).")
