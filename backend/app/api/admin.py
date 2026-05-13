@@ -96,7 +96,7 @@ async def list_orders(
 
     query = """
     FOR o IN Orders
-        LET client = o.client_key != null ? DOCUMENT(CONCAT("users/", o.client_key)) : null
+        LET client = o.client_key != null ? DOCUMENT(CONCAT("Users/", o.client_key)) : null
         LET courier_edge = FIRST(
             FOR e IN Executes
                 FILTER PARSE_IDENTIFIER(e._to).key == o._key
@@ -127,7 +127,7 @@ async def list_orders(
     total_query = """
     RETURN LENGTH(
         FOR o IN Orders
-            LET client = o.client_key != null ? DOCUMENT(CONCAT("users/", o.client_key)) : null
+            LET client = o.client_key != null ? DOCUMENT(CONCAT("Users/", o.client_key)) : null
             FILTER @order_id == null OR CONTAINS(LOWER(o._key), LOWER(@order_id))
             FILTER @status == null OR o.status == @status
             FILTER @waste_type == null OR o.waste_type == @waste_type

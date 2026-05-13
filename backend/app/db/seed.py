@@ -61,6 +61,10 @@ def seed_demo_data() -> None:
     orders_col = db.collection("Orders")
     executes_col = db.collection("Executes")
 
+    if not db.has_collection("Owns"):
+        db.create_collection("Owns", edge=True)
+    owns_col = db.collection("Owns")
+
     courier_keys = []
     for i, name in enumerate(_COURIER_NAMES):
         doc = users_col.insert({
@@ -101,17 +105,25 @@ def seed_demo_data() -> None:
         is_done = n < 35
         status = "done" if is_done else random.choice(_STATUSES_OPEN)
 
+        customer_key = random.choice(customer_keys)
         order_doc = orders_col.insert({
             "waste_type": waste,
             "volume": volume,
             "price": price,
             "status": status,
             "description": "",
-            "client_key": random.choice(customer_keys),
+            "client_key": customer_key,
             "scheduled_at": _now_minus(days_ago - 0.5),
             "created_at": _now_minus(days_ago),
         })
         order_key = order_doc["_key"]
+
+        owns_col.insert({
+            "_from": f"Users/{customer_key}",
+            "_to": f"Orders/{order_key}",
+            "created_at": _now_minus(days_ago),
+            "relation_type": "Owns",
+        })
 
         if is_done:
             courier_key = random.choice(courier_keys)
