@@ -14,7 +14,7 @@ _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _HASH = _pwd.hash("Demo1234!")
 
 _CITIES = ["Москва", "Санкт-Петербург", "Казань", "Новосибирск", "Екатеринбург"]
-_TRANSPORTS = ["car", "truck", "bicycle"]
+_TRANSPORTS = ["car", "foot", "van"]
 _WASTE_TYPES = ["Бытовой", "Строительный", "Мебель"]
 _STATUSES_DONE = ["done"]
 _STATUSES_OPEN = ["searching", "active"]

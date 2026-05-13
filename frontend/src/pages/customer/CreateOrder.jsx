@@ -106,7 +106,9 @@ const CreateOrder = () => {
                         <div className="hidden md:flex items-center gap-2 rounded-full bg-white border border-[#e7f3e7] px-4 py-2 shadow-sm">
                             <span className="text-xs font-semibold uppercase text-[#4c9a4c]">Баланс</span>
                             <span className="text-sm font-bold text-[#0d1b0d]">{balance.toLocaleString()} ₽</span>
-                            <button className="ml-2 flex size-6 items-center justify-center rounded-full bg-[#42f042] text-[#0d1b0d] hover:bg-[#32d032] transition-colors">
+                            <button
+                                onClick={() => navigate('/top-up-balance')}
+                                className="ml-2 flex size-6 items-center justify-center rounded-full bg-[#42f042] text-[#0d1b0d] hover:bg-[#32d032] transition-colors">
                                 <span className="material-symbols-outlined text-[18px]">add</span>
                             </button>
                         </div>
