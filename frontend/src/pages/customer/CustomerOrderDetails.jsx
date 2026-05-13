@@ -136,15 +136,6 @@ const CustomerOrderDetails = () => {
                                     <span className="text-base font-bold">Стоимость услуги</span>
                                     <span className="text-2xl font-black text-[#42f042]">{order.price} ₽</span>
                                 </div>
-                                {/* Кнопка подтверждения только если статус active */}
-                                {order.status === 'active' && (
-                                    <button
-                                        onClick={handleConfirmOrder}
-                                        className="w-full py-4 bg-[#42f042] hover:bg-[#32d032] text-[#0d1b0d] font-bold rounded-lg transition-all"
-                                    >
-                                        Подтвердить выполнение
-                                    </button>
-                                )}
                             </section>
                         </div>
                     </div>
