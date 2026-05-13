@@ -1,20 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const ForgotPassword = () => {
     const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Логика перехода на шаг 2
-        console.log("Код отправлен");
-        // navigate('/reset-password/step-2');
+        setError('');
+        setLoading(true);
+        try {
+            const res = await fetch('/api/v1/auth/password-reset/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.detail || 'Ошибка отправки кода');
+                return;
+            }
+            navigate('/verify-code', { state: { email } });
+        } catch {
+            setError('Ошибка сети. Проверьте подключение к интернету');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
         <div className="min-h-screen flex flex-col bg-[#f6f8f6] font-['Public_Sans'] text-[#0d1b0d] antialiased">
 
-            {/* TOP NAV (из референса) */}
+            {/* TOP NAV */}
             <header className="w-full bg-white border-b border-[#e7f3e7] sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
@@ -51,14 +70,12 @@ const ForgotPassword = () => {
 
             {/* MAIN CONTENT */}
             <main className="flex-grow flex flex-col items-center justify-center py-12 px-4 relative overflow-hidden">
-                {/* Background blobs */}
                 <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
                     <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-[#42f042]/5 rounded-full blur-[120px]"></div>
                     <div className="absolute top-[40%] -right-[10%] w-[40%] h-[60%] bg-[#42f042]/5 rounded-full blur-[120px]"></div>
                 </div>
 
                 <div className="w-full max-w-md z-10">
-                    {/* Header Section */}
                     <div className="text-center mb-10">
                         <div className="inline-flex items-center justify-center size-16 rounded-full bg-[#42f042]/10 border border-[#42f042]/20 mb-4">
                             <span className="material-symbols-outlined text-[#42f042] text-4xl">mail_lock</span>
@@ -69,7 +86,6 @@ const ForgotPassword = () => {
                         </p>
                     </div>
 
-                    {/* Card */}
                     <div className="bg-white shadow-[0_4px_20px_-2px_rgba(66,240,66,0.12),0_2px_10px_-2px_rgba(0,0,0,0.05)] rounded-xl border border-[#e7f3e7]">
                         <div className="p-8">
                             <form onSubmit={handleSubmit} className="space-y-6">
@@ -86,17 +102,23 @@ const ForgotPassword = () => {
                                             id="email"
                                             required
                                             placeholder="example@mail.ru"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
                                             className="block w-full pl-10 pr-3 py-3 border border-[#e7f3e7] rounded-lg bg-[#f6f8f6] text-[#0d1b0d] placeholder-[#4c9a4c]/60 focus:outline-none focus:ring-2 focus:ring-[#42f042] focus:border-[#42f042] text-sm transition-all duration-200"
                                         />
                                     </div>
+                                    {error && (
+                                        <p className="mt-2 text-xs font-medium text-red-500">{error}</p>
+                                    )}
                                 </div>
 
                                 <button
                                     type="submit"
-                                    className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl text-base font-bold text-[#0d1b0d] bg-[#42f042] hover:bg-[#36d636] transition-all duration-200 hover:-translate-y-0.5 shadow-[0_4px_14px_0_rgba(66,240,66,0.35)]"
+                                    disabled={loading}
+                                    className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl text-base font-bold text-[#0d1b0d] bg-[#42f042] hover:bg-[#36d636] transition-all duration-200 hover:-translate-y-0.5 shadow-[0_4px_14px_0_rgba(66,240,66,0.35)] disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-xl">send</span>
-                                    Отправить код
+                                    {loading ? 'Отправка...' : 'Отправить код'}
                                 </button>
                             </form>
                         </div>

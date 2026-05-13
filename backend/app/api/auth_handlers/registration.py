@@ -123,12 +123,12 @@ async def admin_register(payload: AdminRegisterRequest): # Принимаем м
     try:
         log_event(
             event_type="user_registered",
-            title="Регистрация нового курьера",
-            description=f"{full_name}",
+            title="Регистрация нового администратора",
+            description=f"{payload.full_name}",
             related_id=result["id"],
             related_type="user",
         )
     except Exception as e:
-        print(f"[WARN] Не удалось записать событие регистрации курьера: {e}")
+        print(f"[WARN] Не удалось записать событие регистрации администратора: {e}")
 
     return result

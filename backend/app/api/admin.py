@@ -1,6 +1,8 @@
+import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import Response
 from app.api.deps import get_current_active_admin
 from app.models.user import UserResponse
 from app.db.session import arango_instance
@@ -23,7 +25,7 @@ async def list_users(
     db = arango_instance.db
 
     query = """
-    FOR u IN users
+    FOR u IN Users
         FILTER @full_name == null OR CONTAINS(LOWER(u.full_name), LOWER(@full_name))
         FILTER @email == null OR CONTAINS(LOWER(u.email), LOWER(@email))
         FILTER @phone == null OR CONTAINS(LOWER(u.phone), LOWER(@phone))
@@ -44,7 +46,7 @@ async def list_users(
 
     total_query = """
     RETURN LENGTH(
-        FOR u IN users
+        FOR u IN Users
             FILTER @full_name == null OR CONTAINS(LOWER(u.full_name), LOWER(@full_name))
             FILTER @email == null OR CONTAINS(LOWER(u.email), LOWER(@email))
             FILTER @phone == null OR CONTAINS(LOWER(u.phone), LOWER(@phone))
@@ -94,7 +96,8 @@ async def list_orders(
 
     query = """
     FOR o IN Orders
-        LET client = o.client_key != null ? DOCUMENT(CONCAT("users/", o.client_key)) : null
+        LET client = o.client_key != null ? DOCUMENT(CONCAT("Users/", o.client_key)) : null
+        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o At RETURN v)
         LET courier_edge = FIRST(
             FOR e IN Executes
                 FILTER PARSE_IDENTIFIER(e._to).key == o._key
@@ -105,7 +108,7 @@ async def list_orders(
         FILTER @order_id == null OR CONTAINS(LOWER(o._key), LOWER(@order_id))
         FILTER @status == null OR o.status == @status
         FILTER @waste_type == null OR o.waste_type == @waste_type
-        FILTER @address == null OR CONTAINS(LOWER(o.address), LOWER(@address))
+        FILTER @address == null OR (addr_doc != null AND CONTAINS(LOWER(addr_doc.full_address), LOWER(@address)))
         FILTER @client_name == null OR (client != null AND CONTAINS(LOWER(client.full_name), LOWER(@client_name)))
 
         SORT o.created_at DESC
@@ -114,7 +117,7 @@ async def list_orders(
             id: o._key,
             created_at: o.created_at,
             waste_type: o.waste_type,
-            address: o.address,
+            address: addr_doc != null ? addr_doc.full_address : null,
             status: o.status,
             price: o.price,
             client_name: client != null ? client.full_name : null,
@@ -125,11 +128,12 @@ async def list_orders(
     total_query = """
     RETURN LENGTH(
         FOR o IN Orders
-            LET client = o.client_key != null ? DOCUMENT(CONCAT("users/", o.client_key)) : null
+            LET client = o.client_key != null ? DOCUMENT(CONCAT("Users/", o.client_key)) : null
+            LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o At RETURN v)
             FILTER @order_id == null OR CONTAINS(LOWER(o._key), LOWER(@order_id))
             FILTER @status == null OR o.status == @status
             FILTER @waste_type == null OR o.waste_type == @waste_type
-            FILTER @address == null OR CONTAINS(LOWER(o.address), LOWER(@address))
+            FILTER @address == null OR (addr_doc != null AND CONTAINS(LOWER(addr_doc.full_address), LOWER(@address)))
             FILTER @client_name == null OR (client != null AND CONTAINS(LOWER(client.full_name), LOWER(@client_name)))
             RETURN 1
     )
@@ -164,11 +168,13 @@ async def list_orders(
 async def dashboard_stats(current_user: UserResponse = Depends(get_current_active_admin)):
     db = arango_instance.db
 
-    # Количество заказов за сегодня
+    # Количество заказов завершённых сегодня
     orders_today_query = """
     LET today = DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd")
     FOR o IN Orders
-        FILTER DATE_FORMAT(DATE_ISO8601(o.created_at), "%yyyy-%mm-%dd") == today
+        FILTER o.status == "done"
+        FILTER o.completed_at != null
+        FILTER DATE_FORMAT(DATE_ISO8601(o.completed_at), "%yyyy-%mm-%dd") == today
         COLLECT WITH COUNT INTO cnt
         RETURN cnt
     """
@@ -178,7 +184,7 @@ async def dashboard_stats(current_user: UserResponse = Depends(get_current_activ
 
     # Курьеры на линии (имеют активные заказы) / всего курьеров
     couriers_query = """
-    LET total = LENGTH(FOR u IN users FILTER u.role == "courier" RETURN u)
+    LET total = LENGTH(FOR u IN Users FILTER u.role == "courier" RETURN u)
     LET active_keys = (
         FOR e IN Executes
             LET order = DOCUMENT(e._to)
@@ -196,7 +202,8 @@ async def dashboard_stats(current_user: UserResponse = Depends(get_current_activ
     LET today = DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd")
     FOR o IN Orders
         FILTER o.status == "done"
-        FILTER DATE_FORMAT(DATE_ISO8601(o.created_at), "%yyyy-%mm-%dd") == today
+        FILTER o.completed_at != null
+        FILTER DATE_FORMAT(DATE_ISO8601(o.completed_at), "%yyyy-%mm-%dd") == today
         COLLECT AGGREGATE vol = SUM(o.volume)
         RETURN vol
     """
@@ -241,13 +248,21 @@ async def dashboard_events(
         related_id = ev.get("related_id")
         related_type = ev.get("related_type")
         if related_id and related_type:
-            collection = "Orders" if related_type == "order" else "users"
-            try:
-                doc = db.collection(collection).get(related_id)
-                if doc is None:
+            _type_to_collection = {
+                "order": "Orders",
+                "Order": "Orders",
+                "user": "Users",
+                "User": "Users",
+                "Transaction": "Transactions",
+            }
+            collection = _type_to_collection.get(related_type)
+            if collection:
+                try:
+                    doc = db.collection(collection).get(related_id)
+                    if doc is None:
+                        item["error"] = "Ошибка отображения события: связанный объект не найден"
+                except Exception:
                     item["error"] = "Ошибка отображения события: связанный объект не найден"
-            except Exception:
-                item["error"] = "Ошибка отображения события: связанный объект не найден"
 
         enriched.append(item)
 
@@ -256,3 +271,146 @@ async def dashboard_events(
         "total": total,
         "has_more": offset + limit < total,
     }
+
+
+@router.get("/analytics")
+async def get_analytics(
+    x_axis: str = Query("waste_type", description="waste_type | month | courier"),
+    y_axis: str = Query("volume", description="volume | count | price"),
+    period: str = Query("all", description="all | month | year"),
+    waste_type: Optional[str] = Query(None),
+    status: Optional[str] = Query(None, description="done — только выполненные"),
+    current_user: UserResponse = Depends(get_current_active_admin),
+):
+    from datetime import datetime, timedelta, timezone
+
+    db = arango_instance.db
+
+    now = datetime.now(timezone.utc)
+    if period == "month":
+        since = (now - timedelta(days=30)).isoformat()
+    elif period == "year":
+        since = (now - timedelta(days=365)).isoformat()
+    else:
+        since = None
+
+    y_expr = (
+        "SUM(o.volume)"
+        if y_axis == "volume"
+        else "SUM(o.price)"
+        if y_axis == "price"
+        else "COUNT(1)"
+    )
+
+    period_filter = "FILTER @since == null OR o.created_at >= @since"
+    waste_filter = "FILTER @waste_type == null OR o.waste_type == @waste_type"
+    status_filter = "FILTER @status == null OR o.status == @status"
+
+    bind = {
+        "since": since,
+        "waste_type": waste_type if waste_type and waste_type != "Любой" else None,
+        "status": "done" if status == "done" else None,
+    }
+
+    if x_axis == "courier":
+        query = f"""
+            FOR e IN Executes
+              LET o = DOCUMENT(e._to)
+              LET courier = DOCUMENT(e._from)
+              FILTER o != null AND courier != null
+              {period_filter}
+              {waste_filter}
+              {status_filter}
+              COLLECT label = courier.full_name AGGREGATE value = {y_expr}
+              SORT value DESC
+              RETURN {{label, value: value == null ? 0 : value}}
+        """
+    elif x_axis == "month":
+        query = f"""
+            FOR o IN Orders
+              {period_filter}
+              {waste_filter}
+              {status_filter}
+              LET label = SUBSTRING(o.created_at, 0, 7)
+              COLLECT grp = label AGGREGATE value = {y_expr}
+              SORT grp ASC
+              RETURN {{label: grp, value: value == null ? 0 : value}}
+        """
+    else:  # waste_type
+        query = f"""
+            FOR o IN Orders
+              {period_filter}
+              {waste_filter}
+              {status_filter}
+              COLLECT label = o.waste_type AGGREGATE value = {y_expr}
+              SORT value DESC
+              RETURN {{label, value: value == null ? 0 : value}}
+        """
+
+    rows = list(db.aql.execute(query, bind_vars=bind))
+    labels = [r["label"] or "Неизвестно" for r in rows]
+    values = [round(r["value"], 2) for r in rows]
+    total = round(sum(values), 2)
+
+    return {"labels": labels, "values": values, "total": total}
+
+
+@router.get("/backup/export")
+async def export_backup(current_user: UserResponse = Depends(get_current_active_admin)):
+    db = arango_instance.db
+
+    dump = {}
+    for collection_info in db.collections():
+        name = collection_info["name"]
+        if name.startswith("_"):
+            continue
+        docs = list(db.collection(name).all())
+        dump[name] = docs
+
+    content = json.dumps(dump, ensure_ascii=False, default=str)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=backup.json"},
+    )
+
+
+@router.post("/backup/import")
+async def import_backup(
+    file: UploadFile = File(...),
+    current_user: UserResponse = Depends(get_current_active_admin),
+):
+    raw = await file.read()
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="Ошибка формата: выберите корректный файл дампа базы данных",
+        )
+
+    if not isinstance(data, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="Ошибка формата: выберите корректный файл дампа базы данных",
+        )
+
+    db = arango_instance.db
+    try:
+        for collection_name, docs in data.items():
+            if not isinstance(docs, list):
+                continue
+            if not db.has_collection(collection_name):
+                db.create_collection(collection_name)
+            col = db.collection(collection_name)
+            col.truncate()
+            for doc in docs:
+                clean = {k: v for k, v in doc.items() if k not in ("_id", "_rev")}
+                col.insert(clean)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Критическая ошибка при восстановлении. Часть данных может быть утеряна: {e}",
+        )
+
+    return {"message": "Данные успешно восстановлены"}

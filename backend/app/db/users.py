@@ -174,10 +174,10 @@ def deduct_order_payment(user_key: str, amount: float, order_key: str = None):
         "now": datetime.now().isoformat()
     })
 
-    result = list(cursor)[0]
-
-    if not result.get("success"):
+    rows = list(cursor)
+    if not rows:
         raise ValueError("Недостаточно средств на балансе")
+    result = rows[0]
 
     log_event(
         event_type="order_payment",

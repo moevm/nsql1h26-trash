@@ -4,7 +4,6 @@ import { useAuth } from '../AuthContext.jsx'
 
 const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
     const { login } = useAuth();
     const [formData, setFormData] = useState({
@@ -51,14 +50,9 @@ const LoginPage = () => {
         }
     };
     const openModal = (e) => {
-
         e.preventDefault();
-
-        setIsModalOpen(true);
-
+        navigate('/forgot-password-email');
     };
-
-    const closeModal = () => setIsModalOpen(false);
 
 
 
@@ -313,94 +307,6 @@ const LoginPage = () => {
             </main>
 
 
-
-            {/* Forgot Password Modal */}
-
-            {isModalOpen && (
-
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-
-                    <div onClick={closeModal} className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"></div>
-
-
-
-                    <div className="relative bg-white rounded-2xl border border-[#e7f3e7] shadow-2xl w-full max-w-md p-8 z-10 animate-in fade-in zoom-in duration-200">
-
-                        <button onClick={closeModal} className="absolute top-4 right-4 text-[#4c9a4c] hover:text-text-main transition-colors">
-
-                            <span className="material-symbols-outlined text-xl">close</span>
-
-                        </button>
-
-                        <div className="flex flex-col items-center text-center mb-6">
-
-                            <div className="inline-flex items-center justify-center size-14 rounded-full bg-primary/10 border border-primary/20 mb-4">
-
-                                <span className="material-symbols-outlined text-primary text-3xl">key</span>
-
-                            </div>
-
-                            <h3 className="text-2xl font-black text-text-main">Восстановление пароля</h3>
-
-                            <p className="text-sm text-[#4c9a4c] mt-2">
-
-                                Укажите email — мы отправим ссылку для сброса пароля
-
-                            </p>
-
-                        </div>
-
-                        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-
-                            <div>
-
-                                <label className="block text-sm font-semibold text-text-main mb-2" htmlFor="reset-email">Email</label>
-
-                                <div className="relative">
-
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-
-                                        <span className="material-symbols-outlined text-[#4c9a4c] text-xl">alternate_email</span>
-
-                                    </div>
-
-                                    <input
-
-                                        className="block w-full pl-10 pr-3 py-3 border border-[#e7f3e7] rounded-lg bg-[#f6f8f6] text-text-main placeholder-[#4c9a4c]/70 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm"
-
-                                        id="reset-email" type="email" placeholder="example@mail.ru" required
-
-                                    />
-
-                                </div>
-
-                            </div>
-
-                            <button
-
-                                className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl text-base font-bold text-black bg-primary hover:bg-primary-hover transition-all duration-200 transform hover:-translate-y-0.5 shadow-[0_4px_14px_0_rgba(19,236,19,0.39)]"
-
-                                type="submit"
-
-                            >
-
-                                <span className="material-symbols-outlined text-xl">send</span>
-
-                                Отправить ссылку
-
-                            </button>
-
-                        </form>
-
-                        <p className="mt-4 text-center text-xs text-[#4c9a4c]">
-                            Вспомнили пароль? <button onClick={closeModal} className="font-medium text-primary hover:text-primary-dark transition-colors">Войти</button>
-                        </p>
-
-                    </div>
-
-                </div>
-
-            )}
 
         </div>
 

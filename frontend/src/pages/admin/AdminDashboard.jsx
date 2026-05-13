@@ -2,6 +2,62 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminSidebar from "./AdminSidebar";
 
+const useAdminBackup = (token) => {
+    const [dumpLoading, setDumpLoading] = useState(false);
+    const [importLoading, setImportLoading] = useState(false);
+    const importInputRef = useRef(null);
+
+    const handleExport = async () => {
+        setDumpLoading(true);
+        try {
+            const res = await fetch('/api/v1/admin/backup/export', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error('Ошибка генерации дампа');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'backup.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            alert(e.message);
+        } finally {
+            setDumpLoading(false);
+        }
+    };
+
+    const handleImportClick = () => {
+        importInputRef.current?.click();
+    };
+
+    const handleImportFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = '';
+        setImportLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/v1/admin/backup/import', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Ошибка импорта');
+            alert(data.message);
+        } catch (e) {
+            alert(e.message);
+        } finally {
+            setImportLoading(false);
+        }
+    };
+
+    return { dumpLoading, importLoading, importInputRef, handleExport, handleImportClick, handleImportFile };
+};
+
 const EVENT_ICONS = {
     order_created: { icon: "add", color: "bg-blue-100 text-blue-600" },
     order_accepted: { icon: "local_shipping", color: "bg-yellow-100 text-yellow-600" },
@@ -24,6 +80,8 @@ const AdminDashboard = () => {
     const abortRef = useRef(null);
 
     const token = localStorage.getItem('access_token');
+
+    const { dumpLoading, importLoading, importInputRef, handleExport, handleImportClick, handleImportFile } = useAdminBackup(token);
 
     const fetchStats = useCallback(async () => {
         try {
@@ -155,11 +213,28 @@ const AdminDashboard = () => {
                             <p className="text-sm text-[#586458] mt-1">Массовый экспорт и импорт всех коллекций приложения (JSON)</p>
                         </div>
                         <div className="flex gap-3 w-full md:w-auto relative z-10">
-                            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-[#0d1b0d] font-bold py-2.5 px-5 rounded-lg border border-[#e7f3e7] transition-colors">
-                                <span className="material-symbols-outlined text-sm">download</span> Дамп
+                            <button
+                                onClick={handleExport}
+                                disabled={dumpLoading}
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-[#0d1b0d] font-bold py-2.5 px-5 rounded-lg border border-[#e7f3e7] transition-colors disabled:opacity-50"
+                            >
+                                <span className="material-symbols-outlined text-sm">download</span>
+                                {dumpLoading ? 'Генерация...' : 'Дамп'}
                             </button>
-                            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#42f042] hover:bg-[#36c936] text-[#0d1b0d] font-bold py-2.5 px-5 rounded-lg shadow-sm shadow-[#42f042]/20 transition-all">
-                                <span className="material-symbols-outlined text-sm">upload</span> Загрузить
+                            <input
+                                ref={importInputRef}
+                                type="file"
+                                accept=".json,application/json"
+                                className="hidden"
+                                onChange={handleImportFile}
+                            />
+                            <button
+                                onClick={handleImportClick}
+                                disabled={importLoading}
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#42f042] hover:bg-[#36c936] text-[#0d1b0d] font-bold py-2.5 px-5 rounded-lg shadow-sm shadow-[#42f042]/20 transition-all disabled:opacity-50"
+                            >
+                                <span className="material-symbols-outlined text-sm">upload</span>
+                                {importLoading ? 'Загрузка...' : 'Загрузить'}
                             </button>
                         </div>
                     </div>

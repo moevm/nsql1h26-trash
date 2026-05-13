@@ -15,6 +15,7 @@ from app.api.clients import router as client_router
 from app.api.admin import router as admin_router
 from app.api.deps import get_current_active_client
 from app.db.events import ensure_events_collection
+from app.db.seed import seed_demo_data
 import logging
 import time
 from fastapi.openapi.utils import get_openapi
@@ -49,6 +50,8 @@ async def lifespan(app: FastAPI):
     get_available_orders()
     ensure_default_debug_users()
     ensure_events_collection()
+    if settings.SEED_DEMO_DATA:
+        seed_demo_data()
     logger.info("Коллекции БД инициализированы.")
 
     yield
