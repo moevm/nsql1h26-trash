@@ -15,7 +15,7 @@ _HASH = _pwd.hash("Demo1234!")
 
 _CITIES = ["Москва", "Санкт-Петербург", "Казань", "Новосибирск", "Екатеринбург"]
 _TRANSPORTS = ["car", "truck", "bicycle"]
-_WASTE_TYPES = ["Бытовой", "Строительный", "Крупногабаритный"]
+_WASTE_TYPES = ["Бытовой", "Строительный", "Мебель"]
 _STATUSES_DONE = ["done"]
 _STATUSES_OPEN = ["searching", "active"]
 
@@ -65,6 +65,14 @@ def seed_demo_data() -> None:
         db.create_collection("Owns", edge=True)
     owns_col = db.collection("Owns")
 
+    if not db.has_collection("Addresses"):
+        db.create_collection("Addresses")
+    addresses_col = db.collection("Addresses")
+
+    if not db.has_collection("At"):
+        db.create_collection("At", edge=True)
+    at_col = db.collection("At")
+
     courier_keys = []
     for i, name in enumerate(_COURIER_NAMES):
         doc = users_col.insert({
@@ -75,7 +83,7 @@ def seed_demo_data() -> None:
             "role": "courier",
             "city": random.choice(_CITIES),
             "transport": random.choice(_TRANSPORTS),
-            "balance": round(random.uniform(0, 5000), 2),
+            "balance": round(random.uniform(0, 5000)),
             "rating": round(random.uniform(3.5, 5.0), 1),
             "is_active": True,
             "created_at": _now_minus(random.uniform(30, 180)),
@@ -91,7 +99,7 @@ def seed_demo_data() -> None:
             "password_hash": _HASH,
             "role": "customer",
             "address": _ADDRESSES[i % len(_ADDRESSES)],
-            "balance": round(random.uniform(0, 10000), 2),
+            "balance": round(random.uniform(0, 10000)),
             "is_active": True,
             "created_at": _now_minus(random.uniform(10, 150)),
         })
@@ -101,11 +109,12 @@ def seed_demo_data() -> None:
         days_ago = random.uniform(0.5, 180)
         waste = random.choice(_WASTE_TYPES)
         volume = round(random.uniform(1, 40), 1)
-        price = round(volume * random.uniform(400, 700), 2)
+        price = round(volume * random.uniform(400, 700))
         is_done = n < 35
         status = "done" if is_done else random.choice(_STATUSES_OPEN)
 
         customer_key = random.choice(customer_keys)
+        address = random.choice(_ADDRESSES)
         order_doc = orders_col.insert({
             "waste_type": waste,
             "volume": volume,
@@ -118,6 +127,20 @@ def seed_demo_data() -> None:
         })
         order_key = order_doc["_key"]
 
+        addr_doc = addresses_col.insert({
+            "full_address": address,
+            "details": {
+                "entrance": str(random.randint(1, 5)),
+                "floor": random.randint(1, 16),
+                "intercom": str(random.randint(1, 999)),
+            },
+        })
+        at_col.insert({
+            "_from": f"Orders/{order_key}",
+            "_to": f"Addresses/{addr_doc['_key']}",
+            "relation_type": "At",
+        })
+
         owns_col.insert({
             "_from": f"Users/{customer_key}",
             "_to": f"Orders/{order_key}",
@@ -125,7 +148,7 @@ def seed_demo_data() -> None:
             "relation_type": "Owns",
         })
 
-        if is_done:
+        if is_done or status == "active":
             courier_key = random.choice(courier_keys)
             executes_col.insert({
                 "_from": f"Users/{courier_key}",

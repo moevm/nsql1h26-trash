@@ -224,7 +224,10 @@ def update_order_status_by_courier(order_key: str, new_status: str, courier_key:
         })
 
 
-    db.collection(ORDERS_COLLECTION).update({"_key": order_key, "status": new_status})
+    update_doc = {"_key": order_key, "status": new_status}
+    if new_status == "done":
+        update_doc["completed_at"] = now
+    db.collection(ORDERS_COLLECTION).update(update_doc)
     return {"success": True}
 
 

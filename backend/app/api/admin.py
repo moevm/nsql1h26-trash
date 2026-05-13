@@ -97,6 +97,7 @@ async def list_orders(
     query = """
     FOR o IN Orders
         LET client = o.client_key != null ? DOCUMENT(CONCAT("Users/", o.client_key)) : null
+        LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o At RETURN v)
         LET courier_edge = FIRST(
             FOR e IN Executes
                 FILTER PARSE_IDENTIFIER(e._to).key == o._key
@@ -107,7 +108,7 @@ async def list_orders(
         FILTER @order_id == null OR CONTAINS(LOWER(o._key), LOWER(@order_id))
         FILTER @status == null OR o.status == @status
         FILTER @waste_type == null OR o.waste_type == @waste_type
-        FILTER @address == null OR CONTAINS(LOWER(o.address), LOWER(@address))
+        FILTER @address == null OR (addr_doc != null AND CONTAINS(LOWER(addr_doc.full_address), LOWER(@address)))
         FILTER @client_name == null OR (client != null AND CONTAINS(LOWER(client.full_name), LOWER(@client_name)))
 
         SORT o.created_at DESC
@@ -116,7 +117,7 @@ async def list_orders(
             id: o._key,
             created_at: o.created_at,
             waste_type: o.waste_type,
-            address: o.address,
+            address: addr_doc != null ? addr_doc.full_address : null,
             status: o.status,
             price: o.price,
             client_name: client != null ? client.full_name : null,
@@ -128,10 +129,11 @@ async def list_orders(
     RETURN LENGTH(
         FOR o IN Orders
             LET client = o.client_key != null ? DOCUMENT(CONCAT("Users/", o.client_key)) : null
+            LET addr_doc = FIRST(FOR v IN 1..1 OUTBOUND o At RETURN v)
             FILTER @order_id == null OR CONTAINS(LOWER(o._key), LOWER(@order_id))
             FILTER @status == null OR o.status == @status
             FILTER @waste_type == null OR o.waste_type == @waste_type
-            FILTER @address == null OR CONTAINS(LOWER(o.address), LOWER(@address))
+            FILTER @address == null OR (addr_doc != null AND CONTAINS(LOWER(addr_doc.full_address), LOWER(@address)))
             FILTER @client_name == null OR (client != null AND CONTAINS(LOWER(client.full_name), LOWER(@client_name)))
             RETURN 1
     )
@@ -166,11 +168,13 @@ async def list_orders(
 async def dashboard_stats(current_user: UserResponse = Depends(get_current_active_admin)):
     db = arango_instance.db
 
-    # Количество заказов за сегодня
+    # Количество заказов завершённых сегодня
     orders_today_query = """
     LET today = DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd")
     FOR o IN Orders
-        FILTER DATE_FORMAT(DATE_ISO8601(o.created_at), "%yyyy-%mm-%dd") == today
+        FILTER o.status == "done"
+        FILTER o.completed_at != null
+        FILTER DATE_FORMAT(DATE_ISO8601(o.completed_at), "%yyyy-%mm-%dd") == today
         COLLECT WITH COUNT INTO cnt
         RETURN cnt
     """
@@ -198,7 +202,8 @@ async def dashboard_stats(current_user: UserResponse = Depends(get_current_activ
     LET today = DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd")
     FOR o IN Orders
         FILTER o.status == "done"
-        FILTER DATE_FORMAT(DATE_ISO8601(o.created_at), "%yyyy-%mm-%dd") == today
+        FILTER o.completed_at != null
+        FILTER DATE_FORMAT(DATE_ISO8601(o.completed_at), "%yyyy-%mm-%dd") == today
         COLLECT AGGREGATE vol = SUM(o.volume)
         RETURN vol
     """
