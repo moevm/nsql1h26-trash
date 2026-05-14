@@ -73,14 +73,39 @@ const CourierOrdersHistory = () => {
         fetchOrders({ page: 1 });
     }, [selectedWasteType, selectedStatus]);
 
-    console.log("Данные заказов:", orders);
+    const handleReset = () => {
+        setSearchQuery('');
+        setSelectedWasteType('');
+        setSelectedStatus('');
+        setCurrentPage(1);
+        fetchOrders({
+            page: 1,
+            query: '',
+            wasteType: '',
+            status: ''
+        });
+    };
+
+    const isFiltered = searchQuery !== '' || selectedWasteType !== '' || selectedStatus !== '';
     return (
         <div className="flex h-screen bg-background-light overflow-hidden text-text-main">
             <Sidebar activePage="my-orders" />
 
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 <header className="h-20 flex items-center justify-between px-8 border-b border-slate-200 bg-white shrink-0 z-10">
-                    <h2 className="text-2xl font-bold tracking-tight">История моих заказов</h2>
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-2xl font-bold tracking-tight">История моих заказов</h2>
+
+                        {isFiltered && (
+                            <button
+                                onClick={handleReset}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition-all active:scale-95"
+                            >
+                                <span className="material-symbols-outlined text-sm">filter_alt_off</span>
+                                Сбросить фильтры
+                            </button>
+                        )}
+                    </div>
                     <div className="relative">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3">
                             <span className="material-symbols-outlined text-slate-400 text-xl">search</span>

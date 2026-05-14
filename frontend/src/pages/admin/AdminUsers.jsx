@@ -64,6 +64,20 @@ const AdminUsers = () => {
         setAppliedFilters(filters);
     };
 
+    const handleReset = () => {
+        const emptyFilters = {
+            full_name: '',
+            email: '',
+            phone: '',
+            role: '',
+            is_active: '',
+        };
+        setFilters(emptyFilters);
+        setAppliedFilters(emptyFilters);
+    };
+
+    const hasInputs = Object.values(filters).some(val => val !== '');
+
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#f8fcf8] text-[#0d1b0d] font-['Public_Sans']">
             <AdminSidebar activeTab="users" />
@@ -139,8 +153,22 @@ const AdminUsers = () => {
                                     <option value="false">Неактивен</option>
                                 </select>
                             </div>
-                            <div className="space-y-1 flex items-end lg:col-span-1">
-                                <button type="submit" className="w-full bg-[#f0f7f0] hover:bg-[#42f042]/20 text-[#0d1b0d] font-bold py-2 rounded-lg border border-[#e7f3e7] transition-colors">
+                            <div className="space-y-1 flex items-end gap-2 lg:col-span-1">
+                                {hasInputs && (
+                                    <button
+                                        type="button"
+                                        onClick={handleReset}
+                                        className="flex-1 bg-white hover:bg-red-50 text-red-500 font-bold py-2 rounded-lg border border-[#e7f3e7] transition-colors flex items-center justify-center"
+                                        title="Очистить фильтры"
+                                    >
+                                        <span className="material-symbols-outlined text-[20px]">filter_alt_off</span>
+                                    </button>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    className={`${hasInputs ? 'flex-[3]' : 'w-full'} bg-[#f0f7f0] hover:bg-[#42f042]/20 text-[#0d1b0d] font-bold py-2 rounded-lg border border-[#e7f3e7] transition-colors`}
+                                >
                                     Применить фильтр
                                 </button>
                             </div>
