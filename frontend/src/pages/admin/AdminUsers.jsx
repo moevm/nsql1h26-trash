@@ -8,6 +8,9 @@ const AdminUsers = () => {
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
 
+    const [limit] = useState(10);
+    const [currentPage, setCurrentPage] = useState(1);
+
     const [filters, setFilters] = useState({
         full_name: '',
         email: '',
@@ -24,10 +27,15 @@ const AdminUsers = () => {
         customer: 'Заказчик',
     }), []);
 
-    const fetchUsers = async (currentFilters) => {
+    const fetchUsers = async (currentFilters, page) => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
+
+            const offset = (page - 1) * limit;
+            params.set('offset', offset);
+            params.set('limit', limit);
+
             Object.entries(currentFilters).forEach(([key, value]) => {
                 if (value !== '' && value !== null && value !== undefined) {
                     params.set(key, value);
@@ -38,9 +46,7 @@ const AdminUsers = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            if (!res.ok) {
-                throw new Error('Ошибка загрузки пользователей');
-            }
+            if (!res.ok) throw new Error('Ошибка загрузки пользователей');
 
             const data = await res.json();
             setUsers(data.items || []);
@@ -55,12 +61,13 @@ const AdminUsers = () => {
     };
 
     useEffect(() => {
-        fetchUsers(appliedFilters);
+        fetchUsers(appliedFilters, currentPage);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [appliedFilters]);
+    }, [appliedFilters, currentPage]);
 
     const handleApply = (e) => {
         e.preventDefault();
+        setCurrentPage(1); // Сброс на первую страницу при поиске
         setAppliedFilters(filters);
     };
 
@@ -73,10 +80,13 @@ const AdminUsers = () => {
             is_active: '',
         };
         setFilters(emptyFilters);
+        setCurrentPage(1);
         setAppliedFilters(emptyFilters);
     };
 
+    // Вычисляемые переменные (важно: объявлять до return)
     const hasInputs = Object.values(filters).some(val => val !== '');
+    const totalPages = Math.ceil(total / limit) || 1;
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#f8fcf8] text-[#0d1b0d] font-['Public_Sans']">
@@ -221,6 +231,29 @@ const AdminUsers = () => {
                                 </tbody>
                             </table>
                         </div>
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-6 py-4 border-t border-[#e7f3e7] bg-[#f8fcf8]">
+                                <div className="text-xs text-[#586458]">
+                                    Страница <b>{currentPage}</b> из <b>{totalPages}</b>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        disabled={currentPage === 1 || loading}
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        className="flex items-center justify-center w-10 h-10 rounded-lg border border-[#e7f3e7] bg-white disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                                    </button>
+                                    <button
+                                        disabled={currentPage === totalPages || loading}
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        className="flex items-center justify-center w-10 h-10 rounded-lg border border-[#e7f3e7] bg-white disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>
