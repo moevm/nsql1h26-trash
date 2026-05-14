@@ -50,6 +50,16 @@ const OrderHistory = () => {
         setCurrentPage(0);
     };
 
+    const handleReset = () => {
+        setStatusFilter('all');
+        setWasteTypeFilter('all');
+        setSortBy('created_at');
+        setSortOrder('desc');
+        setCurrentPage(0);
+    };
+
+    const isFiltered = statusFilter !== 'all' || wasteTypeFilter !== 'all' || sortBy !== 'created_at' || sortOrder !== 'desc';
+
     return (
         <div className="flex min-h-screen w-full flex-col md:flex-row bg-[#f6f8f6] font-display text-[#111811] antialiased">
             <SidebarCustomer activePage="/customer-history" />
@@ -73,6 +83,16 @@ const OrderHistory = () => {
                     {/* Filters + Controls */}
                     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-4 items-center justify-between">
                         <div className="flex flex-wrap items-center gap-3">
+
+                            {isFiltered && (
+                                <button
+                                    onClick={handleReset}
+                                    className="flex items-center gap-1 px-3 py-2 text-sm font-bold text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition-all active:scale-95"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">filter_alt_off</span>
+                                    Сбросить
+                                </button>
+                            )}
 
                             <div className="relative flex items-center bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
                                 <span className="material-symbols-outlined text-[20px] text-slate-500 ml-3">filter_list</span>
