@@ -28,6 +28,7 @@ settings = Dynaconf(
         Validator("DEBUG_CUSTOMER_PASSWORD", default="Customer123"),
         Validator("DEBUG_CUSTOMER_ADDRESS", default="г. Санкт-Петербург, Невский пр., д. 1"),
         Validator("SEED_DEMO_DATA", default=False, is_type_of=bool),
+        Validator("RUN_BENCHMARK", default=False, is_type_of=bool),
     ]
 )
 

@@ -1,0 +1,18 @@
+query,small_ms,medium_ms,large_ms,ratio_large_small
+available_orders,1.55,3.39,8.94,5.77
+client_orders,1.71,1.14,1.51,0.88
+courier_orders,1.53,2.39,4.35,2.84
+courier_stats,1.51,2.19,3.29,2.18
+admin_orders,4.67,757.48,43622.65,9341.04
+admin_users_filter,1.46,1.45,1.94,1.33
+admin_users_search,1.2,1.28,2.44,2.03
+dashboard_stats,1.58,10.96,60.97,38.59
+analytics_by_waste,1.6,2.34,10.33,6.46
+analytics_by_courier,1.5,10.38,51.5,34.33
+active_couriers,1.27,6.45,36.63,28.84
+courier_transactions,0.91,1.61,4.12,4.53
+
+# scale,customers,couriers,orders,orders_per_customer
+small,30,10,100,3.3
+medium,150,40,2000,13.3
+large,400,80,15000,37.5

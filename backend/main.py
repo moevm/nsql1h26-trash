@@ -16,6 +16,7 @@ from app.api.admin import router as admin_router
 from app.api.deps import get_current_active_client
 from app.db.events import ensure_events_collection
 from app.db.seed import seed_demo_data
+from app.db.benchmark import run_benchmark
 import logging
 import time
 from fastapi.openapi.utils import get_openapi
@@ -50,6 +51,10 @@ async def lifespan(app: FastAPI):
     get_available_orders()
     ensure_default_debug_users()
     ensure_events_collection()
+    if settings.RUN_BENCHMARK:
+        logger.info("Запуск бенчмарка AQL-запросов...")
+        run_benchmark()
+        logger.info("Бенчмарк завершён.")
     if settings.SEED_DEMO_DATA:
         seed_demo_data()
     logger.info("Коллекции БД инициализированы.")
